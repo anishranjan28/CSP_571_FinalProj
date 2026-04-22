@@ -1,0 +1,8 @@
+ucimlrepo
+numpy
+pandas
+jupyter
+matplotlib
+scikit-learn
+scipy
+
