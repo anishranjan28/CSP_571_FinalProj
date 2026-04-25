@@ -1,0 +1,272 @@
+---
+title: "01_eda"
+author: "Anish"
+date: "2026-04-25"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  exo = TRUE, message = FALSE, warning = FALSE,
+  fig.width = 8, fig.height = 5, dpi = 110
+)
+
+library(tidyverse)
+library(scales)
+library(corrplot)
+library(GGally)
+
+theme_set(theme_minimal(base_size = 12))
+```
+
+# 1. Project Outline
+
+We are working with the **UCI Online Retail** dataset (id 352): roughly one year of transactions from a UK-based online gift retailer (Dec 2010 – Dec 2011). The project is unsupervised, aiming at customer segmentation.
+
+Two cleaned tables produced by `data_prep.py` live in `../data/`:
+
+-   `online_retail_clean.csv` – transaction-level (one row per line item)
+-   `customer_features.csv` – customer-level RFM + behavioural extras
+
+This notebook does the EDA only; modelling lives in subsequent files.
+
+# 2. Load data
+
+```{r load}
+tx <- read_csv("../data/online_retail_clean.csv",
+               show_col_types =  FALSE)
+customer <- read_csv("../data/customer_features.csv",
+                     show_col_types = FALSE)
+
+tx$InvoiceDate <- as_datetime(tx$InvoiceDate)
+tx$Date <- as_date(tx$Date)
+
+list(
+  transactions = dim(tx),
+  customers    = dim(customer),
+  date_range   = range(tx$InvoiceDate),
+  countries    = n_distinct(tx$Country)
+)
+```
+
+```{r glimpse-tx}
+glimpse(tx)
+```
+
+```{r glimpse-customer}
+glimpse(customer)
+```
+
+# 3. Headline numbers
+
+```{r kpis}
+tibble(
+  customer = n_distinct(tx$CustomerID),
+  invoices = n_distinct(tx$InvoiceNo),
+  unique_products = n_distinct(tx$StockCode),
+  line_items = nrow(tx),
+  total_revenue = sum(tx$Amount),
+  avg_basket = mean(tx$Amount)
+) |>
+  pivot_longer(everything(), names_to = "metric", values_to = "value") |>
+  mutate(value = comma(value, accuracy = 0.01))
+```
+
+# 4. Distribution of RFM features (raw vs. log)
+
+```{r rfm-raw, fig.height=3.5}
+customer |>
+  select(Recency, Frequency, Monetary) |>
+  pivot_longer(everything(), names_to = "feature", values_to = "value") |>
+  ggplot(aes(value)) +
+  geom_histogram(bins = 50, fill = "steelblue", colour = "white") +
+  facet_wrap(~ feature, scales = "free", nrow = 1) +
+  labs(title = "Raw RFM distributions (heavy right tail)",
+       x = NULL, y = "Customers")
+```
+
+```{r rfm-log, fig.height=3.5}
+customer |>
+  select(log_Recency, log_Frequency, log_Monetary) |>
+  pivot_longer(everything(), names_to = "feature", values_to = "value") |>
+  ggplot(aes(value)) +
+  geom_histogram(bins = 50, fill = "darkorange", colour = "white") +
+  facet_wrap(~ feature, scales = "free", nrow = 1) +
+  labs(title = "Log-transformed RFM (much closer to symmetric)",
+       x = NULL, y = "Customers")
+```
+
+The log scale also makes the wholesale tail in `Monetary` legible -under 
+raw scaling those customers are near-invisible, on log scale they form a distinct upper shoulder of the distribution.
+
+
+# 5. Corraltion structure
+
+
+```{r corr, fig.height=6}
+num_cols <- customer |>
+  select(Recency, Frequency, Monetary,
+         TotalQuantity, UniqueProducts,
+         AvgUnitPrice, AvgBasketValue,
+         AvgOrderValue, AvgOrderItems,
+         TenureDays, ReturnInvoices, ReturnRate)
+
+corrplot::corrplot(
+  cor(num_cols, use = "pairwise.complete.obs"),
+  method = "color", type = "upper", order = "hclust",
+  addCoef.col = "black", number.cex = 0.7,
+  tl.col = "black", tl.cex = 0.8, diag = FALSE
+)
+```
+* `Monetary`, `TotalQuantity`, and `Frequency` are tightly correlated —
+  expected, since spending more usually means buying more in more orders.
+* `AvgOrderValue` and `AvgBasketValue` carry similar signal; we'll likely
+  keep only one in the clustering input.
+* `Recency` is largely independent of the spending features — it's its own
+  axis of variation. That's why R, F, M is the canonical triple.
+
+
+# 6. Pairs plot on the modelling set
+
+```{r pairs, fig.height=7, fig.width=8, cache=TRUE}
+set.seed(1)
+customer |>
+  slice_sample(n = 1000) |>
+  select(log_Recency, log_Frequency, log_Monetary,
+         log_UniqueProducts, log_AvgOrderValue) |>
+  GGally::ggpairs(progress = FALSE,
+                  lower = list(continuous = wrap("points", alpha = 0.3,
+                                                 size = 0.6))) +
+  labs(title = "Log-feature pairs plot (1k-customer sample)")
+```
+
+
+# 7. Sales over time
+
+```{r ts-daily}
+daily <- tx |>
+  group_by(Date) |>
+  summarise(revenue = sum(Amount),
+            invoices = n_distinct(InvoiceNo), .groups = "drop")
+
+ggplot(daily, aes(Date, revenue)) +
+  geom_line(colour = "steelblue") +
+  geom_smooth(method = "loess", span = 0.2, se = FALSE,
+              colour = "darkorange") +
+  scale_y_continuous(labels = label_comma(prefix = "£")) +
+  labs(title = "Daily revenue, Dec 2010 – Dec 2011",
+       x = NULL, y = "Revenue")
+```
+
+The Q4 2011 ramp is the holiday gift season — exactly what we'd expect for
+this retailer. Good sanity check that the data makes sense.
+
+```{r ts-dow-hour, fig.height=3.5}
+library(gridExtra)
+
+p_dow <- tx |>
+  count(DOW = factor(DOW, levels = c("Monday","Tuesday","Wednesday",
+                                     "Thursday","Friday","Saturday","Sunday")),
+        wt = Amount, name = "revenue") |>
+  ggplot(aes(DOW, revenue)) +
+  geom_col(fill = "steelblue") +
+  scale_y_continuous(labels = label_comma(prefix = "£")) +
+  labs(title = "Revenue by day of week", x = NULL, y = NULL)
+
+p_hour <- tx |>
+  count(Hour, wt = Amount, name = "revenue") |>
+  ggplot(aes(Hour, revenue)) +
+  geom_col(fill = "steelblue") +
+  scale_y_continuous(labels = label_comma(prefix = "£")) +
+  labs(title = "Revenue by hour of day", x = NULL, y = NULL)
+
+gridExtra::grid.arrange(p_dow, p_hour, nrow = 1)
+```
+
+# 8. Geography
+
+```{r country, fig.height=4.5}
+tx |>
+  count(Country, wt = Amount, name = "revenue", sort = TRUE) |>
+  mutate(share = revenue / sum(revenue),
+         Country = fct_reorder(Country, revenue)) |>
+  slice_max(revenue, n = 10) |>
+  ggplot(aes(revenue, Country)) +
+  geom_col(fill = "steelblue") +
+  geom_text(aes(label = percent(share, accuracy = 0.1)),
+            hjust = -0.1, size = 3) +
+  scale_x_continuous(labels = label_comma(prefix = "£"),
+                     expand = expansion(mult = c(0, 0.15))) +
+  labs(title = "Top 10 countries by revenue",
+       subtitle = "UK dominance is the headline — Country will be a weak feature",
+       x = NULL, y = NULL)
+```
+
+# 9. Top products
+
+```{r products}
+tx |>
+  group_by(StockCode, Description) |>
+  summarise(revenue = sum(Amount),
+            qty     = sum(Quantity),
+            .groups = "drop") |>
+  slice_max(revenue, n = 15) |>
+  mutate(Description = fct_reorder(Description, revenue)) |>
+  ggplot(aes(revenue, Description)) +
+  geom_col(fill = "steelblue") +
+  scale_x_continuous(labels = label_comma(prefix = "£")) +
+  labs(title = "Top 15 products by revenue", x = NULL, y = NULL)
+```
+
+# 10. Revenue concentration (Pareto check)
+
+How concentrated is revenue across customers? This frames the outlier
+question for clustering.
+
+```{r pareto}
+pareto <- customer |>
+  arrange(desc(Monetary)) |>
+  mutate(rank        = row_number(),
+         pct_cust    = rank / n(),
+         cum_revenue = cumsum(Monetary) / sum(Monetary))
+
+ggplot(pareto, aes(pct_cust, cum_revenue)) +
+  geom_line(colour = "steelblue", linewidth = 1) +
+  geom_abline(linetype = "dashed", colour = "grey50") +
+  scale_x_continuous(labels = percent_format()) +
+  scale_y_continuous(labels = percent_format()) +
+  labs(title = "Lorenz curve — customer share vs. revenue share",
+       x = "Cumulative share of customers (sorted by spend)",
+       y = "Cumulative share of revenue")
+```
+
+```{r pareto-numbers}
+pareto |>
+  filter(pct_cust %in% c(0.01, 0.05, 0.10, 0.20, 0.50)) |>
+  transmute(top_pct_customers = percent(pct_cust),
+            share_of_revenue  = percent(cum_revenue, accuracy = 0.1))
+```
+
+If a tiny share of customers controls a large share of revenue, they'll dominate any unscaled clustering. This confirms the plan to cluster on log-features rather than raw.
+
+
+# 11. Returns / cancellations
+
+```{r returns, fig.height=3.5}
+customer |>
+  ggplot(aes(ReturnRate)) +
+  geom_histogram(bins = 40, fill = "firebrick", colour = "white") +
+  scale_x_continuous(labels = percent_format()) +
+  labs(title = "Return rate per customer",
+       subtitle = "Most customers never cancel; a small group cancels heavily",
+       x = "Cancelled invoices / total invoices", y = "Customers")
+```
+
+```{r returns-vs-spend}
+ggplot(customer, aes(log_Monetary, ReturnRate)) +
+  geom_point(alpha = 0.3, size = 0.8, colour = "steelblue") +
+  geom_smooth(method = "loess", se = FALSE, colour = "darkorange") +
+  scale_y_continuous(labels = percent_format()) +
+  labs(title = "Return rate vs. customer spend",
+       x = "log(Monetary)", y = "Return rate")
+```
