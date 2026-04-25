@@ -1,0 +1,274 @@
+---
+title: "02_PCA"
+author: "Anish"
+date: "2026-04-25"
+output: pdf_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, message = FALSE, warning = FALSE,
+  fig.width = 8, fig.height = 5, dpi = 110              
+)
+
+library(tidyverse)
+library(scales)
+
+theme_set(theme_minimal(base_size = 12))
+```
+
+# 1. Why PCA before clustering
+
+Two distinct jobs PCA does for this project, both straight
+
+1.  **Visulisation** - project the the customers onto PC1-PC2 so we can
+    eyeball whether segments separates in the plane of the greatest
+    variance, colour by candidate cluster labels later, and produce the
+    biplot.
+2.  **Preprocessing** - replace the seven correlated input features with
+    2-3 orthogonal PC scores and cluster those.
+
+The output of this notebook is stored in PC-scores matrix
+('../data/customer_pc_scores.csv') consumed by '03_clustering.Rmd'
+
+# 2. Load the customer-level features
+
+```{r load}
+customer <- read_csv("../data/customer_features.csv",
+                     show_col_types = FALSE)
+glimpse(customer)
+```
+
+# 3. Build the modelling matrix
+
+From the EDA (correlation heatmap in `01_EDA.Rmd`) we settled on a
+seven-feature input. The redundant ones (`AvgBasketValue` ≈
+`AvgOrderValue`, `TotalQuantity` ≈ `Monetary`, `ReturnInvoices` ≈
+`Frequency`) were dropped. `Country` was dropped (82.9% UK).
+`ReturnRate` is held back as a *profiling* variable — too sparse to
+anchor a cluster, but useful for interpretation later.
+
+```{r build-X}
+feature_cols <- c("log_Recency", "log_Frequency", "log_Monetary",
+                  "log_UniqueProducts", "log_AvgOrderValue",
+                  "AvgUnitPrice", "TenureDays")
+
+X <- customer |>
+  select(CustomerId, all_of(feature_cols)) |>
+  drop_na()
+
+dim(X)
+summary(X[, feature_cols])
+```
+
+# 4. Fit PCA
+
+`prcomp` with `scale = TRUE` standardises every column to zero mean and
+unit variance — required because `AvgUnitPrice` and `TenureDays` are on
+totally different scales from the log features.
+
+```{r pca-fit}
+pr.out <- prcomp(X[, feature_cols], center = TRUE, scale. = TRUE)
+pr.out
+```
+
+# 5. Variance explained
+
+```{r pve}
+pve <- pr.out$sdev^2 / sum(pr.out$sdev^2)
+pve_df <- tibble(
+  PC          = factor(paste0("PC", seq_along(pve)),
+                       levels = paste0("PC", seq_along(pve))),
+  PVE         = pve,
+  cumulative  = cumsum(pve)
+)
+pve_df
+```
+
+```{r scree, fig.height=3.5}
+p_scree <- ggplot(pve_df, aes(PC, PVE)) +
+  geom_col(fill = "steelblue") +
+  geom_text(aes(label = percent(PVE, accuracy = 0.1)),
+            vjust = -0.4, size = 3) +
+  scale_y_continuous(labels = percent_format(),
+                     expand = expansion(mult = c(0, 0.15))) +
+  labs(title = "Scree plot", x = NULL, y = "Proportion of variance")
+
+p_cum <- ggplot(pve_df, aes(PC, cumulative, group = 1)) +
+  geom_line(colour = "steelblue", linewidth = 1) +
+  geom_point(colour = "steelblue", size = 2) +
+  geom_hline(yintercept = c(0.7, 0.8, 0.9),
+             linetype = "dashed", colour = "grey60") +
+  scale_y_continuous(labels = percent_format(), limits = c(0, 1)) +
+  labs(title = "Cumulative variance",
+       x = NULL, y = "Cumulative PVE")
+
+gridExtra::grid.arrange(p_scree, p_cum, nrow = 1)
+```
+
+```{r kaiser}
+tibble(
+  PC         = paste0("PC", seq_along(pr.out$sdev)),
+  eigenvalue = pr.out$sdev^2,
+  keep_kaiser = pr.out$sdev^2 > 1
+)
+```
+
+# 6. Loadings — what each PC actually means
+
+```{r loadings}
+loadings <- as_tibble(pr.out$rotation, rownames = "feature")
+loadings |> mutate(across(where(is.numeric), \(x) round(x, 2)))
+```
+
+```{r loadings-heatmap, fig.height=4}
+loadings |>
+  pivot_longer(-feature, names_to = "PC", values_to = "loading") |>
+  filter(PC %in% paste0("PC", 1:4)) |>
+  mutate(PC = factor(PC, levels = paste0("PC", 1:4))) |>
+  ggplot(aes(PC, fct_rev(feature), fill = loading)) +
+  geom_tile() +
+  geom_text(aes(label = sprintf("%.2f", loading)), size = 3) +
+  scale_fill_gradient2(low = "firebrick", mid = "white",
+                       high = "steelblue", midpoint = 0,
+                       limits = c(-1, 1)) +
+  labs(title = "Loadings (PC1–PC4)", x = NULL, y = NULL)
+```
+
+Reading the loadings is what lets us *name* each component. Expected
+pattern based on the EDA correlation structure:
+
+-   **PC1** loads positively on `log_Frequency`, `log_Monetary`,
+    `log_UniqueProducts`, `log_AvgOrderValue` and negatively on
+    `log_Recency` — i.e. an "engagement / customer value" axis.
+-   **PC2** is dominated by `TenureDays` and either `AvgUnitPrice` or
+    `Recency`'s residual signal — a "tenure / lifecycle" axis orthogonal
+    to engagement.
+-   **PC3** isolates `AvgUnitPrice` (which the EDA showed was
+    near-uncorrelated with everything else) — a "price-point" axis.
+
+# 7. PC scores — the new feature space
+
+```{r scores}
+scores <- as_tibble(pr.out$x) |>
+  mutate(CustomerId = X$CustomerId, .before = 1) |>
+  left_join(customer |> select(CustomerId, Monetary, Frequency,
+                               Recency, Country, ReturnRate),
+            by = "CustomerId")
+
+head(scores)
+```
+
+## 7a. PC1 vs PC2 scatter, coloured by spend
+
+```{r pc12-monetary}
+ggplot(scores, aes(PC1, PC2, colour = log10(Monetary + 1))) +
+  geom_point(alpha = 0.5, size = 0.8) +
+  scale_colour_viridis_c(option = "magma",
+                         name = expression(log[10]~Monetary)) +
+  labs(title = "Customers in PC1–PC2 space, coloured by spend",
+       subtitle = "PC1 should align with engagement/value")
+```
+
+## 7b. PC1 vs PC2 scatter, coloured by recency
+
+```{r pc12-recency}
+ggplot(scores, aes(PC1, PC2, colour = Recency)) +
+  geom_point(alpha = 0.5, size = 0.8) +
+  scale_colour_viridis_c(option = "viridis", direction = -1,
+                         name = "Recency (days)") +
+  labs(title = "PC1–PC2 space, coloured by recency",
+       subtitle = "Recent customers should sit on the engagement side of PC1")
+```
+
+## 7c. PC2 vs PC3, coloured by AvgUnitPrice
+
+```{r pc23-unit-price}
+ggplot(scores, aes(PC2, PC3,
+                   colour = pmin(customer$AvgUnitPrice[match(CustomerId,
+                                                             customer$CustomerId)],
+                                 quantile(customer$AvgUnitPrice, 0.99,
+                                          na.rm = TRUE)))) +
+  geom_point(alpha = 0.5, size = 0.8) +
+  scale_colour_viridis_c(option = "cividis",
+                         name = "AvgUnitPrice (capped @ p99)") +
+  labs(title = "PC2 vs PC3 — surfacing the price-point axis")
+```
+
+# 8. Biplot
+
+That works, but a ggplot version reads more clearly in the report. We
+overlay variable arrows (scaled to the score range) on top of the
+scatter.
+
+```{r biplot, fig.height=6, fig.width=7}
+arrow_scale <- with(pr.out,
+                    min(max(abs(x[, 1])) / max(abs(rotation[, 1])),
+                        max(abs(x[, 2])) / max(abs(rotation[, 2])))) * 0.7
+
+arrows_df <- as_tibble(pr.out$rotation, rownames = "feature") |>
+  mutate(PC1 = PC1 * arrow_scale,
+         PC2 = PC2 * arrow_scale)
+
+ggplot(scores, aes(PC1, PC2)) +
+  geom_point(alpha = 0.25, size = 0.6, colour = "grey50") +
+  geom_segment(data = arrows_df,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               arrow = arrow(length = unit(0.2, "cm")),
+               colour = "firebrick", linewidth = 0.7) +
+  geom_text(data = arrows_df,
+            aes(x = PC1 * 1.08, y = PC2 * 1.08, label = feature),
+            colour = "firebrick", size = 3.5) +
+  labs(title = "Biplot — customers + variable loadings on PC1–PC2",
+       x = sprintf("PC1 (%s)", percent(pve[1], accuracy = 0.1)),
+       y = sprintf("PC2 (%s)", percent(pve[2], accuracy = 0.1)))
+```
+
+# 9. Outlier check on PC1
+
+The EDA Pareto curve suggested the top \~1% of customers might pull a
+disproportionate amount of variance. With log scaling that should be
+much tamer, but worth confirming on PC1.
+
+```{r pc1-outliers}
+scores |>
+  arrange(desc(PC1)) |>
+  slice_head(n = 10) |>
+  select(CustomerId, PC1, PC2, Monetary, Frequency, Recency, Country)
+```
+
+```{r pc1-hist, fig.height=3.5}
+ggplot(scores, aes(PC1)) +
+  geom_histogram(bins = 60, fill = "steelblue", colour = "white") +
+  labs(title = "Distribution of PC1 (engagement axis)",
+       x = "PC1", y = "Customers")
+```
+
+PC1 looks roughly symmetric and unimodal so we're fine to cluster on it
+directly.
+
+# 10. Save PC scores for the clustering step
+
+We keep the first **k** PCs where `k` is the smallest number that
+crosses 80% cumulative variance — defensible under both the elbow
+heuristic and the variance-threshold heuristic. Adjust `k` here if the
+scree suggests otherwise.
+
+```{r save-scores}
+k <- which(cumsum(pve) >= 0.80)[1]
+k
+
+scores_out <- scores |>
+  select(CustomerId, all_of(paste0("PC", 1:k)))
+
+write_csv(scores_out, "../data/customer_pc_scores.csv")
+
+list(
+  components_kept = k,
+  variance_kept   = percent(sum(pve[1:k]), accuracy = 0.1),
+  customers       = nrow(scores_out)
+)
+```

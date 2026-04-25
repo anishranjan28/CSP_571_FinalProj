@@ -1,0 +1,600 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\documentclass[
+]{article}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={02\_PCA},
+  pdfauthor={Anish},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{02\_PCA}
+\author{Anish}
+\date{2026-04-25}
+
+\begin{document}
+\maketitle
+
+\section{1. Why PCA before clustering}\label{why-pca-before-clustering}
+
+Two distinct jobs PCA does for this project, both straight
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{Visulisation} - project the the customers onto PC1-PC2 so we
+  can eyeball whether segments separates in the plane of the greatest
+  variance, colour by candidate cluster labels later, and produce the
+  biplot.
+\item
+  \textbf{Preprocessing} - replace the seven correlated input features
+  with 2-3 orthogonal PC scores and cluster those.
+\end{enumerate}
+
+The output of this notebook is stored in PC-scores matrix
+(`../data/customer\_pc\_scores.csv') consumed by `03\_clustering.Rmd'
+
+\section{2. Load the customer-level
+features}\label{load-the-customer-level-features}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{customer }\OtherTok{\textless{}{-}} \FunctionTok{read\_csv}\NormalTok{(}\StringTok{"../data/customer\_features.csv"}\NormalTok{,}
+                     \AttributeTok{show\_col\_types =} \ConstantTok{FALSE}\NormalTok{)}
+\FunctionTok{glimpse}\NormalTok{(customer)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Rows: 4,334
+## Columns: 22
+## $ CustomerId         <dbl> 12346, 12347, 12348, 12349, 12350, 12352, 12353, 12~
+## $ Recency            <dbl> 326, 2, 75, 19, 310, 36, 204, 232, 214, 23, 33, 2, ~
+## $ Frequency          <dbl> 1, 7, 4, 1, 1, 7, 1, 1, 1, 3, 1, 2, 4, 3, 1, 10, 2,~
+## $ Monetary           <dbl> 77183.60, 4310.00, 1437.24, 1457.55, 294.40, 1385.7~
+## $ TotalQuantity      <dbl> 74215, 2458, 2332, 630, 196, 526, 20, 530, 240, 157~
+## $ UniqueProducts     <dbl> 1, 103, 21, 72, 16, 57, 4, 58, 13, 52, 131, 12, 214~
+## $ AvgUnitPrice       <dbl> 1.040000, 2.644011, 0.692963, 4.237500, 1.581250, 4~
+## $ AvgBasketValue     <dbl> 77183.60000, 23.68132, 53.23111, 20.24375, 18.40000~
+## $ FirstPurchase      <dttm> 2011-01-18 10:01:00, 2010-12-07 14:57:00, 2010-12-~
+## $ LastPurchase       <dttm> 2011-01-18 10:01:00, 2011-12-07 15:52:00, 2011-09-~
+## $ TenureDays         <dbl> 0, 365, 282, 0, 0, 260, 0, 0, 0, 302, 0, 149, 274, ~
+## $ AvgOrderValue      <dbl> 77183.6000, 615.7143, 359.3100, 1457.5500, 294.4000~
+## $ AvgOrderItems      <dbl> 74215.00000, 351.14286, 583.00000, 630.00000, 196.0~
+## $ ReturnInvoices     <dbl> 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 3, 0, ~
+## $ Country            <chr> "United Kingdom", "Iceland", "Finland", "Italy", "N~
+## $ ReturnRate         <dbl> 0.5000000, 0.0000000, 0.0000000, 0.0000000, 0.00000~
+## $ log_Recency        <dbl> 5.789960, 1.098612, 4.330733, 2.995732, 5.739793, 3~
+## $ log_Frequency      <dbl> 0.6931472, 2.0794415, 1.6094379, 0.6931472, 0.69314~
+## $ log_Monetary       <dbl> 11.253955, 8.368925, 7.271175, 7.285198, 5.688330, ~
+## $ log_TotalQuantity  <dbl> 11.214735, 7.807510, 7.754910, 6.447306, 5.283204, ~
+## $ log_UniqueProducts <dbl> 0.6931472, 4.6443909, 3.0910425, 4.2904594, 2.83321~
+## $ log_AvgOrderValue  <dbl> 11.253955, 6.424406, 5.886965, 7.285198, 5.688330, ~
+\end{verbatim}
+
+\section{3. Build the modelling
+matrix}\label{build-the-modelling-matrix}
+
+From the EDA (correlation heatmap in \texttt{01\_EDA.Rmd}) we settled on
+a seven-feature input. The redundant ones (\texttt{AvgBasketValue} ≈
+\texttt{AvgOrderValue}, \texttt{TotalQuantity} ≈ \texttt{Monetary},
+\texttt{ReturnInvoices} ≈ \texttt{Frequency}) were dropped.
+\texttt{Country} was dropped (82.9\% UK). \texttt{ReturnRate} is held
+back as a \emph{profiling} variable --- too sparse to anchor a cluster,
+but useful for interpretation later.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{feature\_cols }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"log\_Recency"}\NormalTok{, }\StringTok{"log\_Frequency"}\NormalTok{, }\StringTok{"log\_Monetary"}\NormalTok{,}
+                  \StringTok{"log\_UniqueProducts"}\NormalTok{, }\StringTok{"log\_AvgOrderValue"}\NormalTok{,}
+                  \StringTok{"AvgUnitPrice"}\NormalTok{, }\StringTok{"TenureDays"}\NormalTok{)}
+
+\NormalTok{X }\OtherTok{\textless{}{-}}\NormalTok{ customer }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{select}\NormalTok{(CustomerId, }\FunctionTok{all\_of}\NormalTok{(feature\_cols)) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{drop\_na}\NormalTok{()}
+
+\FunctionTok{dim}\NormalTok{(X)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 4334    8
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{summary}\NormalTok{(X[, feature\_cols])}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##   log_Recency     log_Frequency     log_Monetary    log_UniqueProducts
+##  Min.   :0.6931   Min.   :0.6931   Min.   : 1.558   Min.   :0.6931    
+##  1st Qu.:2.9444   1st Qu.:0.6931   1st Qu.: 5.721   1st Qu.:2.8332    
+##  Median :3.9512   Median :1.0986   Median : 6.498   Median :3.5835    
+##  Mean   :3.8321   Mean   :1.3416   Mean   : 6.575   Mean   :3.5496    
+##  3rd Qu.:4.9698   3rd Qu.:1.7918   3rd Qu.: 7.398   3rd Qu.:4.3567    
+##  Max.   :5.9269   Max.   :5.3327   Max.   :12.539   Max.   :7.4877    
+##  log_AvgOrderValue  AvgUnitPrice        TenureDays   
+##  Min.   : 1.558    Min.   :  0.1225   Min.   :  0.0  
+##  1st Qu.: 5.183    1st Qu.:  2.1548   1st Qu.:  0.0  
+##  Median : 5.672    Median :  2.8275   Median : 92.0  
+##  Mean   : 5.638    Mean   :  3.4518   Mean   :130.3  
+##  3rd Qu.: 6.051    3rd Qu.:  3.6892   3rd Qu.:252.0  
+##  Max.   :11.341    Max.   :434.6500   Max.   :373.0
+\end{verbatim}
+
+\section{4. Fit PCA}\label{fit-pca}
+
+\texttt{prcomp} with \texttt{scale\ =\ TRUE} standardises every column
+to zero mean and unit variance --- required because
+\texttt{AvgUnitPrice} and \texttt{TenureDays} are on totally different
+scales from the log features.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{pr.out }\OtherTok{\textless{}{-}} \FunctionTok{prcomp}\NormalTok{(X[, feature\_cols], }\AttributeTok{center =} \ConstantTok{TRUE}\NormalTok{, }\AttributeTok{scale. =} \ConstantTok{TRUE}\NormalTok{)}
+\NormalTok{pr.out}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Standard deviations (1, .., p=7):
+## [1] 1.92382417 1.08094105 0.99141178 0.73364861 0.63206843 0.45519906 0.05111489
+## 
+## Rotation (n x k) = (7 x 7):
+##                            PC1         PC2         PC3         PC4          PC5
+## log_Recency        -0.35217909 -0.30888669 -0.14564889 -0.87124744  0.001238877
+## log_Frequency       0.46109609  0.21999333  0.16949772 -0.28091650  0.170362543
+## log_Monetary        0.48458199 -0.27090642 -0.05499447 -0.08592068  0.241784782
+## log_UniqueProducts  0.41849328 -0.05224521 -0.18057469 -0.12300216 -0.877223198
+## log_AvgOrderValue   0.25597653 -0.72896784 -0.30013965  0.20236297  0.218102901
+## AvgUnitPrice       -0.02945191 -0.41862095  0.89083662  0.01070715 -0.172114036
+## TenureDays          0.43244948  0.27098799  0.17536139 -0.31374593  0.256520043
+##                            PC6           PC7
+## log_Recency         0.01647470 -0.0005038401
+## log_Frequency       0.59602196 -0.4970756420
+## log_Monetary        0.25427582  0.7471727921
+## log_UniqueProducts -0.06904938 -0.0104261033
+## log_AvgOrderValue  -0.17707654 -0.4394568790
+## AvgUnitPrice       -0.02359389 -0.0021551590
+## TenureDays         -0.73698685 -0.0375855572
+\end{verbatim}
+
+\section{5. Variance explained}\label{variance-explained}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{pve }\OtherTok{\textless{}{-}}\NormalTok{ pr.out}\SpecialCharTok{$}\NormalTok{sdev}\SpecialCharTok{\^{}}\DecValTok{2} \SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(pr.out}\SpecialCharTok{$}\NormalTok{sdev}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{)}
+\NormalTok{pve\_df }\OtherTok{\textless{}{-}} \FunctionTok{tibble}\NormalTok{(}
+  \AttributeTok{PC          =} \FunctionTok{factor}\NormalTok{(}\FunctionTok{paste0}\NormalTok{(}\StringTok{"PC"}\NormalTok{, }\FunctionTok{seq\_along}\NormalTok{(pve)),}
+                       \AttributeTok{levels =} \FunctionTok{paste0}\NormalTok{(}\StringTok{"PC"}\NormalTok{, }\FunctionTok{seq\_along}\NormalTok{(pve))),}
+  \AttributeTok{PVE         =}\NormalTok{ pve,}
+  \AttributeTok{cumulative  =} \FunctionTok{cumsum}\NormalTok{(pve)}
+\NormalTok{)}
+\NormalTok{pve\_df}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 7 x 3
+##   PC         PVE cumulative
+##   <fct>    <dbl>      <dbl>
+## 1 PC1   0.529         0.529
+## 2 PC2   0.167         0.696
+## 3 PC3   0.140         0.836
+## 4 PC4   0.0769        0.913
+## 5 PC5   0.0571        0.970
+## 6 PC6   0.0296        1.000
+## 7 PC7   0.000373      1
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{p\_scree }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(pve\_df, }\FunctionTok{aes}\NormalTok{(PC, PVE)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_col}\NormalTok{(}\AttributeTok{fill =} \StringTok{"steelblue"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_text}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{label =} \FunctionTok{percent}\NormalTok{(PVE, }\AttributeTok{accuracy =} \FloatTok{0.1}\NormalTok{)),}
+            \AttributeTok{vjust =} \SpecialCharTok{{-}}\FloatTok{0.4}\NormalTok{, }\AttributeTok{size =} \DecValTok{3}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_y\_continuous}\NormalTok{(}\AttributeTok{labels =} \FunctionTok{percent\_format}\NormalTok{(),}
+                     \AttributeTok{expand =} \FunctionTok{expansion}\NormalTok{(}\AttributeTok{mult =} \FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{, }\FloatTok{0.15}\NormalTok{))) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Scree plot"}\NormalTok{, }\AttributeTok{x =} \ConstantTok{NULL}\NormalTok{, }\AttributeTok{y =} \StringTok{"Proportion of variance"}\NormalTok{)}
+
+\NormalTok{p\_cum }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(pve\_df, }\FunctionTok{aes}\NormalTok{(PC, cumulative, }\AttributeTok{group =} \DecValTok{1}\NormalTok{)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\AttributeTok{colour =} \StringTok{"steelblue"}\NormalTok{, }\AttributeTok{linewidth =} \DecValTok{1}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{(}\AttributeTok{colour =} \StringTok{"steelblue"}\NormalTok{, }\AttributeTok{size =} \DecValTok{2}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_hline}\NormalTok{(}\AttributeTok{yintercept =} \FunctionTok{c}\NormalTok{(}\FloatTok{0.7}\NormalTok{, }\FloatTok{0.8}\NormalTok{, }\FloatTok{0.9}\NormalTok{),}
+             \AttributeTok{linetype =} \StringTok{"dashed"}\NormalTok{, }\AttributeTok{colour =} \StringTok{"grey60"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_y\_continuous}\NormalTok{(}\AttributeTok{labels =} \FunctionTok{percent\_format}\NormalTok{(), }\AttributeTok{limits =} \FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{1}\NormalTok{)) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Cumulative variance"}\NormalTok{,}
+       \AttributeTok{x =} \ConstantTok{NULL}\NormalTok{, }\AttributeTok{y =} \StringTok{"Cumulative PVE"}\NormalTok{)}
+
+\NormalTok{gridExtra}\SpecialCharTok{::}\FunctionTok{grid.arrange}\NormalTok{(p\_scree, p\_cum, }\AttributeTok{nrow =} \DecValTok{1}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{02_PCA_files/02_PCA_files/figure-latex/scree-1.pdf}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{tibble}\NormalTok{(}
+  \AttributeTok{PC         =} \FunctionTok{paste0}\NormalTok{(}\StringTok{"PC"}\NormalTok{, }\FunctionTok{seq\_along}\NormalTok{(pr.out}\SpecialCharTok{$}\NormalTok{sdev)),}
+  \AttributeTok{eigenvalue =}\NormalTok{ pr.out}\SpecialCharTok{$}\NormalTok{sdev}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{,}
+  \AttributeTok{keep\_kaiser =}\NormalTok{ pr.out}\SpecialCharTok{$}\NormalTok{sdev}\SpecialCharTok{\^{}}\DecValTok{2} \SpecialCharTok{\textgreater{}} \DecValTok{1}
+\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 7 x 3
+##   PC    eigenvalue keep_kaiser
+##   <chr>      <dbl> <lgl>      
+## 1 PC1      3.70    TRUE       
+## 2 PC2      1.17    TRUE       
+## 3 PC3      0.983   FALSE      
+## 4 PC4      0.538   FALSE      
+## 5 PC5      0.400   FALSE      
+## 6 PC6      0.207   FALSE      
+## 7 PC7      0.00261 FALSE
+\end{verbatim}
+
+\section{6. Loadings --- what each PC actually
+means}\label{loadings-what-each-pc-actually-means}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{loadings }\OtherTok{\textless{}{-}} \FunctionTok{as\_tibble}\NormalTok{(pr.out}\SpecialCharTok{$}\NormalTok{rotation, }\AttributeTok{rownames =} \StringTok{"feature"}\NormalTok{)}
+\NormalTok{loadings }\SpecialCharTok{|\textgreater{}} \FunctionTok{mutate}\NormalTok{(}\FunctionTok{across}\NormalTok{(}\FunctionTok{where}\NormalTok{(is.numeric), \textbackslash{}(x) }\FunctionTok{round}\NormalTok{(x, }\DecValTok{2}\NormalTok{)))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 7 x 8
+##   feature              PC1   PC2   PC3   PC4   PC5   PC6   PC7
+##   <chr>              <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl>
+## 1 log_Recency        -0.35 -0.31 -0.15 -0.87  0     0.02  0   
+## 2 log_Frequency       0.46  0.22  0.17 -0.28  0.17  0.6  -0.5 
+## 3 log_Monetary        0.48 -0.27 -0.05 -0.09  0.24  0.25  0.75
+## 4 log_UniqueProducts  0.42 -0.05 -0.18 -0.12 -0.88 -0.07 -0.01
+## 5 log_AvgOrderValue   0.26 -0.73 -0.3   0.2   0.22 -0.18 -0.44
+## 6 AvgUnitPrice       -0.03 -0.42  0.89  0.01 -0.17 -0.02  0   
+## 7 TenureDays          0.43  0.27  0.18 -0.31  0.26 -0.74 -0.04
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{loadings }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{pivot\_longer}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{feature, }\AttributeTok{names\_to =} \StringTok{"PC"}\NormalTok{, }\AttributeTok{values\_to =} \StringTok{"loading"}\NormalTok{) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{filter}\NormalTok{(PC }\SpecialCharTok{\%in\%} \FunctionTok{paste0}\NormalTok{(}\StringTok{"PC"}\NormalTok{, }\DecValTok{1}\SpecialCharTok{:}\DecValTok{4}\NormalTok{)) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{PC =} \FunctionTok{factor}\NormalTok{(PC, }\AttributeTok{levels =} \FunctionTok{paste0}\NormalTok{(}\StringTok{"PC"}\NormalTok{, }\DecValTok{1}\SpecialCharTok{:}\DecValTok{4}\NormalTok{))) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(PC, }\FunctionTok{fct\_rev}\NormalTok{(feature), }\AttributeTok{fill =}\NormalTok{ loading)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_tile}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{geom\_text}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{label =} \FunctionTok{sprintf}\NormalTok{(}\StringTok{"\%.2f"}\NormalTok{, loading)), }\AttributeTok{size =} \DecValTok{3}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_fill\_gradient2}\NormalTok{(}\AttributeTok{low =} \StringTok{"firebrick"}\NormalTok{, }\AttributeTok{mid =} \StringTok{"white"}\NormalTok{,}
+                       \AttributeTok{high =} \StringTok{"steelblue"}\NormalTok{, }\AttributeTok{midpoint =} \DecValTok{0}\NormalTok{,}
+                       \AttributeTok{limits =} \FunctionTok{c}\NormalTok{(}\SpecialCharTok{{-}}\DecValTok{1}\NormalTok{, }\DecValTok{1}\NormalTok{)) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Loadings (PC1–PC4)"}\NormalTok{, }\AttributeTok{x =} \ConstantTok{NULL}\NormalTok{, }\AttributeTok{y =} \ConstantTok{NULL}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{02_PCA_files/02_PCA_files/figure-latex/loadings-heatmap-1.pdf}}
+
+Reading the loadings is what lets us \emph{name} each component.
+Expected pattern based on the EDA correlation structure:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{PC1} loads positively on \texttt{log\_Frequency},
+  \texttt{log\_Monetary}, \texttt{log\_UniqueProducts},
+  \texttt{log\_AvgOrderValue} and negatively on \texttt{log\_Recency}
+  --- i.e.~an ``engagement / customer value'' axis.
+\item
+  \textbf{PC2} is dominated by \texttt{TenureDays} and either
+  \texttt{AvgUnitPrice} or \texttt{Recency}'s residual signal --- a
+  ``tenure / lifecycle'' axis orthogonal to engagement.
+\item
+  \textbf{PC3} isolates \texttt{AvgUnitPrice} (which the EDA showed was
+  near-uncorrelated with everything else) --- a ``price-point'' axis.
+\end{itemize}
+
+\section{7. PC scores --- the new feature
+space}\label{pc-scores-the-new-feature-space}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{scores }\OtherTok{\textless{}{-}} \FunctionTok{as\_tibble}\NormalTok{(pr.out}\SpecialCharTok{$}\NormalTok{x) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{CustomerId =}\NormalTok{ X}\SpecialCharTok{$}\NormalTok{CustomerId, }\AttributeTok{.before =} \DecValTok{1}\NormalTok{) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{left\_join}\NormalTok{(customer }\SpecialCharTok{|\textgreater{}} \FunctionTok{select}\NormalTok{(CustomerId, Monetary, Frequency,}
+\NormalTok{                               Recency, Country, ReturnRate),}
+            \AttributeTok{by =} \StringTok{"CustomerId"}\NormalTok{)}
+
+\FunctionTok{head}\NormalTok{(scores)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 6 x 13
+##   CustomerId    PC1     PC2    PC3    PC4     PC5     PC6      PC7 Monetary
+##        <dbl>  <dbl>   <dbl>  <dbl>  <dbl>   <dbl>   <dbl>    <dbl>    <dbl>
+## 1      12346  1.31  -7.20   -2.81   0.820  4.40   -0.0249  0.00202   77184.
+## 2      12347  3.36   0.179   0.140  0.886  0.381  -0.587  -0.0105     4310 
+## 3      12348  0.741  0.0404 -0.121 -0.728  0.978  -0.489   0.0335     1437.
+## 4      12349  0.467 -2.12   -0.978  1.44  -0.385  -0.146  -0.0477     1458.
+## 5      12350 -1.95  -0.652  -0.597 -0.513  0.0218  0.0405 -0.0415      294.
+## 6      12352  1.30   0.698   0.471 -0.662  0.0539  0.102   0.0169     1386.
+## # i 4 more variables: Frequency <dbl>, Recency <dbl>, Country <chr>,
+## #   ReturnRate <dbl>
+\end{verbatim}
+
+\subsection{7a. PC1 vs PC2 scatter, coloured by
+spend}\label{a.-pc1-vs-pc2-scatter-coloured-by-spend}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(scores, }\FunctionTok{aes}\NormalTok{(PC1, PC2, }\AttributeTok{colour =} \FunctionTok{log10}\NormalTok{(Monetary }\SpecialCharTok{+} \DecValTok{1}\NormalTok{))) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{(}\AttributeTok{alpha =} \FloatTok{0.5}\NormalTok{, }\AttributeTok{size =} \FloatTok{0.8}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_colour\_viridis\_c}\NormalTok{(}\AttributeTok{option =} \StringTok{"magma"}\NormalTok{,}
+                         \AttributeTok{name =} \FunctionTok{expression}\NormalTok{(log[}\DecValTok{10}\NormalTok{]}\SpecialCharTok{\textasciitilde{}}\NormalTok{Monetary)) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Customers in PC1–PC2 space, coloured by spend"}\NormalTok{,}
+       \AttributeTok{subtitle =} \StringTok{"PC1 should align with engagement/value"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{02_PCA_files/02_PCA_files/figure-latex/pc12-monetary-1.pdf}}
+
+\subsection{7b. PC1 vs PC2 scatter, coloured by
+recency}\label{b.-pc1-vs-pc2-scatter-coloured-by-recency}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(scores, }\FunctionTok{aes}\NormalTok{(PC1, PC2, }\AttributeTok{colour =}\NormalTok{ Recency)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{(}\AttributeTok{alpha =} \FloatTok{0.5}\NormalTok{, }\AttributeTok{size =} \FloatTok{0.8}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_colour\_viridis\_c}\NormalTok{(}\AttributeTok{option =} \StringTok{"viridis"}\NormalTok{, }\AttributeTok{direction =} \SpecialCharTok{{-}}\DecValTok{1}\NormalTok{,}
+                         \AttributeTok{name =} \StringTok{"Recency (days)"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"PC1–PC2 space, coloured by recency"}\NormalTok{,}
+       \AttributeTok{subtitle =} \StringTok{"Recent customers should sit on the engagement side of PC1"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{02_PCA_files/02_PCA_files/figure-latex/pc12-recency-1.pdf}}
+
+\subsection{7c. PC2 vs PC3, coloured by
+AvgUnitPrice}\label{c.-pc2-vs-pc3-coloured-by-avgunitprice}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(scores, }\FunctionTok{aes}\NormalTok{(PC2, PC3,}
+                   \AttributeTok{colour =} \FunctionTok{pmin}\NormalTok{(customer}\SpecialCharTok{$}\NormalTok{AvgUnitPrice[}\FunctionTok{match}\NormalTok{(CustomerId,}
+\NormalTok{                                                             customer}\SpecialCharTok{$}\NormalTok{CustomerId)],}
+                                 \FunctionTok{quantile}\NormalTok{(customer}\SpecialCharTok{$}\NormalTok{AvgUnitPrice, }\FloatTok{0.99}\NormalTok{,}
+                                          \AttributeTok{na.rm =} \ConstantTok{TRUE}\NormalTok{)))) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{(}\AttributeTok{alpha =} \FloatTok{0.5}\NormalTok{, }\AttributeTok{size =} \FloatTok{0.8}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_colour\_viridis\_c}\NormalTok{(}\AttributeTok{option =} \StringTok{"cividis"}\NormalTok{,}
+                         \AttributeTok{name =} \StringTok{"AvgUnitPrice (capped @ p99)"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"PC2 vs PC3 — surfacing the price{-}point axis"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{02_PCA_files/02_PCA_files/figure-latex/pc23-unit-price-1.pdf}}
+
+\section{8. Biplot}\label{biplot}
+
+That works, but a ggplot version reads more clearly in the report. We
+overlay variable arrows (scaled to the score range) on top of the
+scatter.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{arrow\_scale }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(pr.out,}
+                    \FunctionTok{min}\NormalTok{(}\FunctionTok{max}\NormalTok{(}\FunctionTok{abs}\NormalTok{(x[, }\DecValTok{1}\NormalTok{])) }\SpecialCharTok{/} \FunctionTok{max}\NormalTok{(}\FunctionTok{abs}\NormalTok{(rotation[, }\DecValTok{1}\NormalTok{])),}
+                        \FunctionTok{max}\NormalTok{(}\FunctionTok{abs}\NormalTok{(x[, }\DecValTok{2}\NormalTok{])) }\SpecialCharTok{/} \FunctionTok{max}\NormalTok{(}\FunctionTok{abs}\NormalTok{(rotation[, }\DecValTok{2}\NormalTok{])))) }\SpecialCharTok{*} \FloatTok{0.7}
+
+\NormalTok{arrows\_df }\OtherTok{\textless{}{-}} \FunctionTok{as\_tibble}\NormalTok{(pr.out}\SpecialCharTok{$}\NormalTok{rotation, }\AttributeTok{rownames =} \StringTok{"feature"}\NormalTok{) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{PC1 =}\NormalTok{ PC1 }\SpecialCharTok{*}\NormalTok{ arrow\_scale,}
+         \AttributeTok{PC2 =}\NormalTok{ PC2 }\SpecialCharTok{*}\NormalTok{ arrow\_scale)}
+
+\FunctionTok{ggplot}\NormalTok{(scores, }\FunctionTok{aes}\NormalTok{(PC1, PC2)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{(}\AttributeTok{alpha =} \FloatTok{0.25}\NormalTok{, }\AttributeTok{size =} \FloatTok{0.6}\NormalTok{, }\AttributeTok{colour =} \StringTok{"grey50"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_segment}\NormalTok{(}\AttributeTok{data =}\NormalTok{ arrows\_df,}
+               \FunctionTok{aes}\NormalTok{(}\AttributeTok{x =} \DecValTok{0}\NormalTok{, }\AttributeTok{y =} \DecValTok{0}\NormalTok{, }\AttributeTok{xend =}\NormalTok{ PC1, }\AttributeTok{yend =}\NormalTok{ PC2),}
+               \AttributeTok{arrow =} \FunctionTok{arrow}\NormalTok{(}\AttributeTok{length =} \FunctionTok{unit}\NormalTok{(}\FloatTok{0.2}\NormalTok{, }\StringTok{"cm"}\NormalTok{)),}
+               \AttributeTok{colour =} \StringTok{"firebrick"}\NormalTok{, }\AttributeTok{linewidth =} \FloatTok{0.7}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_text}\NormalTok{(}\AttributeTok{data =}\NormalTok{ arrows\_df,}
+            \FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ PC1 }\SpecialCharTok{*} \FloatTok{1.08}\NormalTok{, }\AttributeTok{y =}\NormalTok{ PC2 }\SpecialCharTok{*} \FloatTok{1.08}\NormalTok{, }\AttributeTok{label =}\NormalTok{ feature),}
+            \AttributeTok{colour =} \StringTok{"firebrick"}\NormalTok{, }\AttributeTok{size =} \FloatTok{3.5}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Biplot — customers + variable loadings on PC1–PC2"}\NormalTok{,}
+       \AttributeTok{x =} \FunctionTok{sprintf}\NormalTok{(}\StringTok{"PC1 (\%s)"}\NormalTok{, }\FunctionTok{percent}\NormalTok{(pve[}\DecValTok{1}\NormalTok{], }\AttributeTok{accuracy =} \FloatTok{0.1}\NormalTok{)),}
+       \AttributeTok{y =} \FunctionTok{sprintf}\NormalTok{(}\StringTok{"PC2 (\%s)"}\NormalTok{, }\FunctionTok{percent}\NormalTok{(pve[}\DecValTok{2}\NormalTok{], }\AttributeTok{accuracy =} \FloatTok{0.1}\NormalTok{)))}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{02_PCA_files/02_PCA_files/figure-latex/biplot-1.pdf}}
+
+\section{9. Outlier check on PC1}\label{outlier-check-on-pc1}
+
+The EDA Pareto curve suggested the top \textasciitilde1\% of customers
+might pull a disproportionate amount of variance. With log scaling that
+should be much tamer, but worth confirming on PC1.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{scores }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{arrange}\NormalTok{(}\FunctionTok{desc}\NormalTok{(PC1)) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{slice\_head}\NormalTok{(}\AttributeTok{n =} \DecValTok{10}\NormalTok{) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{select}\NormalTok{(CustomerId, PC1, PC2, Monetary, Frequency, Recency, Country)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 10 x 7
+##    CustomerId   PC1    PC2 Monetary Frequency Recency Country       
+##         <dbl> <dbl>  <dbl>    <dbl>     <dbl>   <dbl> <chr>         
+##  1      14911  8.08  0.307  136162.       198       1 EIRE          
+##  2      14646  7.76 -1.91   279138.        72       2 Netherlands   
+##  3      18102  7.22 -1.97   259657.        60       1 United Kingdom
+##  4      12748  7.03  2.14    31651.       206       1 United Kingdom
+##  5      17841  6.82  1.10    40496.       124       2 United Kingdom
+##  6      15311  6.82  0.357   60633.        91       1 United Kingdom
+##  7      14156  6.72 -1.57   116560.        54      10 EIRE          
+##  8      13089  6.65  0.287   58762.        97       3 United Kingdom
+##  9      17511  6.50 -1.67    91062.        31       3 United Kingdom
+## 10      17450  6.44 -2.27   194391.        46       8 United Kingdom
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(scores, }\FunctionTok{aes}\NormalTok{(PC1)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_histogram}\NormalTok{(}\AttributeTok{bins =} \DecValTok{60}\NormalTok{, }\AttributeTok{fill =} \StringTok{"steelblue"}\NormalTok{, }\AttributeTok{colour =} \StringTok{"white"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Distribution of PC1 (engagement axis)"}\NormalTok{,}
+       \AttributeTok{x =} \StringTok{"PC1"}\NormalTok{, }\AttributeTok{y =} \StringTok{"Customers"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{02_PCA_files/02_PCA_files/figure-latex/pc1-hist-1.pdf}}
+
+PC1 looks roughly symmetric and unimodal so we're fine to cluster on it
+directly.
+
+\section{10. Save PC scores for the clustering
+step}\label{save-pc-scores-for-the-clustering-step}
+
+We keep the first \textbf{k} PCs where \texttt{k} is the smallest number
+that crosses 80\% cumulative variance --- defensible under both the
+elbow heuristic and the variance-threshold heuristic. Adjust \texttt{k}
+here if the scree suggests otherwise.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{k }\OtherTok{\textless{}{-}} \FunctionTok{which}\NormalTok{(}\FunctionTok{cumsum}\NormalTok{(pve) }\SpecialCharTok{\textgreater{}=} \FloatTok{0.80}\NormalTok{)[}\DecValTok{1}\NormalTok{]}
+\NormalTok{k}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 3
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{scores\_out }\OtherTok{\textless{}{-}}\NormalTok{ scores }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{select}\NormalTok{(CustomerId, }\FunctionTok{all\_of}\NormalTok{(}\FunctionTok{paste0}\NormalTok{(}\StringTok{"PC"}\NormalTok{, }\DecValTok{1}\SpecialCharTok{:}\NormalTok{k)))}
+
+\FunctionTok{write\_csv}\NormalTok{(scores\_out, }\StringTok{"../data/customer\_pc\_scores.csv"}\NormalTok{)}
+
+\FunctionTok{list}\NormalTok{(}
+  \AttributeTok{components\_kept =}\NormalTok{ k,}
+  \AttributeTok{variance\_kept   =} \FunctionTok{percent}\NormalTok{(}\FunctionTok{sum}\NormalTok{(pve[}\DecValTok{1}\SpecialCharTok{:}\NormalTok{k]), }\AttributeTok{accuracy =} \FloatTok{0.1}\NormalTok{),}
+  \AttributeTok{customers       =} \FunctionTok{nrow}\NormalTok{(scores\_out)}
+\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## $components_kept
+## [1] 3
+## 
+## $variance_kept
+## [1] "83.6%"
+## 
+## $customers
+## [1] 4334
+\end{verbatim}
+
+\end{document}
