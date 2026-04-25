@@ -21,12 +21,12 @@ theme_set(theme_minimal(base_size = 12))
 
 # 1. Project Outline
 
-We are working with the **UCI Online Retail** dataset (id 352): roughly one year of transactions from a UK-based online gift retailer (Dec 2010 – Dec 2011). The project is unsupervised, aiming at customer segmentation.
+We are working with the **UCI Online Retail** data set (id 352): roughly one year of transactions from a UK-based online gift retailer (Dec 2010 – Dec 2011). The project is unsupervised, aiming at customer segmentation.
 
 Two cleaned tables produced by `data_prep.py` live in `../data/`:
 
 -   `online_retail_clean.csv` – transaction-level (one row per line item)
--   `customer_features.csv` – customer-level RFM + behavioural extras
+-   `customer_features.csv` – customer-level RFM + behavioral extras
 
 This notebook does the EDA only; modelling lives in subsequent files.
 
