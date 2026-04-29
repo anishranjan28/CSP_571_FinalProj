@@ -2,7 +2,9 @@
 title: "03_clustering"
 author: "Anish"
 date: "2026-04-26"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -37,3 +39,224 @@ dim(pc)
 glimpse(pc)
 ```
 
+
+```{r matrix}
+# Modelling matrix
+Xpc <- pc |> select(starts_with("PC")) |> as.matrix()
+rownames(Xpc) <- pc$CustomerId
+n_pc <- ncol(Xpc)
+sprintf("Clustering on %d PCs across %d customers", n_pc, nrow(Xpc))
+```
+
+
+# 3. K-means
+
+## 3a. Choosing K - WCSS / elbow
+
+
+```{r km-elbow, cache=TRUE}
+k_grid <- 2:10
+wcss <- map_dbl(k_grid,
+                \(k) kmeans(Xpc, centers = k, nstart = 25,
+                            iter.max = 50)$tot.withinss)
+
+elbow_df <- tibble(k = k_grid, wcss = wcss)
+
+ggplot(elbow_df, aes(k, wcss)) +
+  geom_line(colour = "steelblue", linewidth = 1) +
+  geom_point(colour = "steelblue", size = 2) +
+  scale_x_continuous(breaks = k_grid) +
+  labs(title = "K-means: within-cluster sum of squares vs k",
+       subtitle = "Look for the kink — the elbow",
+       x = "k", y = "Total WCSS")
+```
+
+
+## 3b. Silhouette width
+
+
+```{r km-sil, cache=TRUE}
+d <- dist(Xpc)   # used by silhouette and hclust below
+sil <- map_dbl(k_grid, \(k) {
+  cl <- kmeans(Xpc, centers = k, nstart = 25, iter.max = 50)$cluster
+  mean(silhouette(cl, d)[, "sil_width"])
+})
+sil_df <- tibble(k = k_grid, silhouette = sil)
+
+ggplot(sil_df, aes(k, silhouette)) +
+  geom_line(colour = "darkorange", linewidth = 1) +
+  geom_point(colour = "darkorange", size = 2) +
+  scale_x_continuous(breaks = k_grid) +
+  labs(title = "K-means: average silhouette width vs k",
+       subtitle = "Higher = more honest separation; pick the peak",
+       x = "k", y = "Mean silhouette")
+```
+
+
+## 3c. Gap statistic
+
+The most rigorous of the three (compares within-cluster dispersion to a
+uniform-noise reference). Slow — bumping `B` up gives smoother
+estimates at the cost of runtime.
+
+```{r km-gap, cache=TRUE}
+gap <- clusGap(Xpc, FUN = kmeans, nstart = 25,
+               K.max = 10, B = 50)
+print(gap, method = "Tibs2001SEmax")
+
+fviz_gap_stat(gap) +
+  labs(title = "Gap statistic — Tibshirani 2001 SEmax rule")
+```
+
+
+## 3d. Pick k and fit the final model
+
+The three diagnostics often disagree by ±1. Pick the value that's
+defensible under at least two and matches the substantive prior (4–6
+clusters from the EDA discussion).
+
+```{r km-final}
+k_star <- 3  # CHANGE if your diagnostics point elsewhere
+
+km_fit <- kmeans(Xpc, centers = k_star, nstart = 50, iter.max = 100)
+km_fit$size                            # cluster sizes
+round(km_fit$centers, 2)               # centroids in PC space
+
+mean(silhouette(km_fit$cluster, d)[, "sil_width"])
+```
+
+# 4. Hierarchical clustering
+
+* **Ward (`ward.D2`)** — minimises within-cluster variance, lines up
+  philosophically with k-means. Usually the strongest single choice for
+  customer segmentation.
+* **Complete** — ISLR's default in the lab; tends to give compact,
+  similar-diameter clusters.
+* **Average** — friendlier to elongated or unequal-density clusters;
+  used here as a robustness check.
+  
+
+## 4a. Fit and plot dendrograms
+
+```{r hc-fit, cache=TRUE}
+hc_ward     <- hclust(d, method = "ward.D2")
+hc_complete <- hclust(d, method = "complete")
+hc_average  <- hclust(d, method = "average")
+```
+
+```{r hc-dendrograms, fig.height=10}
+par(mfrow = c(3, 1), mar = c(2, 4, 3, 1))
+plot(hc_ward,     labels = FALSE, hang = -1,
+     main = "Ward (D2) linkage",     xlab = "", sub = "")
+rect.hclust(hc_ward, k = k_star, border = "steelblue")
+
+plot(hc_complete, labels = FALSE, hang = -1,
+     main = "Complete linkage",      xlab = "", sub = "")
+rect.hclust(hc_complete, k = k_star, border = "darkorange")
+
+plot(hc_average,  labels = FALSE, hang = -1,
+     main = "Average linkage",       xlab = "", sub = "")
+rect.hclust(hc_average,  k = k_star, border = "firebrick")
+par(mfrow = c(1, 1))
+```
+
+The dendrogram tells you whether `k_star` is being forced or whether
+the tree naturally falls into that many clusters. Ward and complete
+should look broadly similar; if average linkage produces one giant
+cluster and a handful of singletons, it's flagging a chaining problem
+(a real concern with retail data) — that's a finding, not a bug.
+
+
+## 4b. Cut the tree at k\* and compare to k-means
+
+```{r hc-cut}
+hc_cluster <- cutree(hc_ward, k = k_star)
+
+table(kmeans = km_fit$cluster, hclust = hc_cluster)
+```
+
+A nearly block-diagonal cross-tab means the two algorithms agree on
+who's in which segment (just with different label numbers). Heavy
+off-diagonal mass means the algorithms disagree about cluster
+boundaries — usually because k-means prefers spherical, equal-size
+clusters and hierarchical doesn't.
+
+```{r hc-sil}
+mean(silhouette(hc_cluster, d)[, "sil_width"])
+```
+
+# 5. Stability — bootstrap Jaccard
+
+This is the validation step that separates "real structure" from
+"k-means happened to land somewhere." Resample customers (with
+replacement), refit the clusterer, and measure how often the *original*
+clusters reappear. Jaccard ≥ 0.75 = "stable cluster", < 0.6 = "probably
+noise" (Hennig 2007).
+
+```{r km-stability, cache=TRUE}
+boot_km <- clusterboot(
+  Xpc,
+  B            = 50,
+  bootmethod   = "boot",
+  clustermethod = kmeansCBI,
+  krange       = k_star,
+  seed         = 1,
+  count        = FALSE
+)
+round(boot_km$bootmean, 3)            # one Jaccard per cluster
+boot_km$bootbrd                        # how often dissolved
+```
+
+```{r hc-stability, cache=TRUE}
+boot_hc <- clusterboot(
+  Xpc,
+  B            = 50,
+  bootmethod   = "boot",
+  clustermethod = hclustCBI,
+  method       = "ward.D2",
+  k            = k_star,
+  seed         = 1,
+  count        = FALSE
+)
+round(boot_hc$bootmean, 3)
+boot_hc$bootbrd
+```
+
+# 6. Visualise the final clusters in PC1–PC2
+
+```{r km-plot}
+plot_df <- pc |>
+  mutate(km_cluster = factor(km_fit$cluster),
+         hc_cluster = factor(hc_cluster))
+
+ggplot(plot_df, aes(PC1, PC2, colour = km_cluster)) +
+  geom_point(alpha = 0.5, size = 0.8) +
+  scale_colour_brewer(palette = "Set1", name = "K-means") +
+  labs(title = sprintf("K-means clusters (k = %d) in PC1–PC2", k_star))
+```
+
+```{r hc-plot}
+ggplot(plot_df, aes(PC1, PC2, colour = hc_cluster)) +
+  geom_point(alpha = 0.5, size = 0.8) +
+  scale_colour_brewer(palette = "Set2", name = "Hierarchical (Ward)") +
+  labs(title = sprintf("Hierarchical clusters (Ward, k = %d) in PC1–PC2",
+                       k_star))
+```
+
+
+```{r save}
+final_label_source <- "kmeans"   # CAN CHANGE to "hclust"
+
+final_cluster <- if (final_label_source == "kmeans")
+                   km_fit$cluster else hc_cluster
+
+assignments <- pc |>
+  select(CustomerId) |>
+  mutate(cluster        = factor(final_cluster),
+         cluster_source = final_label_source,
+         k              = k_star)
+
+write_csv(assignments, "../data/customer_clusters.csv")
+
+assignments |> count(cluster, name = "customers")
+```

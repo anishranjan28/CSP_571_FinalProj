@@ -54,7 +54,7 @@ def data_cleaning(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     # Types
     df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
-    df['CustomerId'] = df['CustomerID'].astype(int)
+    df['CustomerID'] = df['CustomerID'].astype(int)
 
     # Derived cols
     df['Amount'] = df['Quantity'] * df['UnitPrice']
@@ -78,7 +78,7 @@ def data_cleaning(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     snapshot_date = df['InvoiceDate'].max() + pd.Timedelta(days=1)
 
     # RFM core
-    rfm = df.groupby("CustomerId").agg(
+    rfm = df.groupby("CustomerID").agg(
         Recency     = ("InvoiceDate", lambda s: (snapshot_date - s.max()).days),
         Frequency   = ("InvoiceNo",   "nunique"),
         Monetary    = ("Amount",      "sum"),

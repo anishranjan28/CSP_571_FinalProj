@@ -1,0 +1,23 @@
+---
+title: "04_profiles"
+author: "Anish"
+date: "2026-04-29"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo=TRUE, message = FALSE, warning = FALSE,
+  fig.width = 8, fig.height = 5, dpi = 110
+)
+
+library(tidyverse)
+library(scales)
+library(rpart)
+library(rpart.plot)
+
+theme_set(theme_minimal(base_size = 12))
+```
+
+
+
