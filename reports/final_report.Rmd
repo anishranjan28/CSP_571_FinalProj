@@ -1,0 +1,351 @@
+---
+title: "UCI Online Retail — Customer Segmentation"
+author: "Anish Ranjan"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+source(file.path("..", "src", "R", "00_setup.R"))
+source(file.path("..", "src", "R", "02_features.R"))
+```
+
+# Project objective
+
+Build a reproducible unsupervised customer-segmentation pipeline on the
+UCI Online Retail dataset (id 352): one year of transactions from a
+UK-based online gift retailer. The statistical goal is to map raw
+transaction lines into customer-level behavioural features, reduce
+feature redundancy via PCA, cluster customers in the reduced space,
+validate the clustering, and persist a deployable scoring artefact. The
+methodological scope is restricted to ISLR Ch. 12 (PCA, k-means,
+hierarchical clustering); ensemble methods, kernel methods, or
+generative models are out of scope.
+
+# Data source and cleaning
+
+The raw download contains 541,909 transaction lines covering 8
+columns: `InvoiceNo`, `StockCode`, `Description`, `Quantity`,
+`InvoiceDate`, `UnitPrice`, `CustomerID`, `Country`. The cleaning
+pipeline (`src/python/data_prep.py`):
+
+1. drops rows missing `CustomerID`;
+2. removes duplicate rows;
+3. removes non-product `StockCode`s
+   (`POST`, `D`, `C2`, `M`, `BANK CHARGES`, `AMAZONFEE`, `DOT`, `CRUK`,
+   `PADS`, `B`);
+4. **separates** cancellation invoices (`InvoiceNo` starting with `C`)
+   into a sibling table rather than discarding them;
+5. retains positive-quantity, positive-price lines in the main table;
+6. standardises the customer key as `CustomerID` everywhere.
+
+After cleaning: ~391,150 positive transactions across ~4,334 customers,
+plus a ~9,000-row cancellations table that drives the net-of-returns
+features below.
+
+# Feature engineering
+
+For each customer $i$ we construct
+$$
+\mathbf{x}_i = (\,
+  R_i, F_i, M_i^{\text{gross}}, M_i^{\text{net}}, Q_i, U_i, A_i,
+  P_i, T_i, C_i, V_i, r_i, \rho_i, S_i \,)
+$$
+with the definitions in the table below. Let $T_{\max}$ be the maximum
+positive-transaction date.
+
+| Symbol | Feature | Definition |
+|---|---|---|
+| $R_i$ | `Recency` | $T_{\max} + 1 - \max\{t : t \in \text{tx}_i\}$ (days) |
+| $F_i$ | `Frequency` | number of distinct positive invoices for customer $i$ |
+| $M_i^{\text{gross}}$ | `GrossMonetary` | $\sum_{j\in i} q_j p_j$ over positive lines |
+| $V_i$ | `ReturnValueAbs` | $\bigl|\sum_{j\in \text{cancel}_i} q_j p_j\bigr|$ |
+| $M_i^{\text{net}}$ | `NetMonetary` | $M_i^{\text{gross}} - V_i$ |
+| $Q_i$ | `TotalQuantity` | $\sum_{j\in i} q_j$ over positive lines |
+| $U_i$ | `UniqueProducts` | $|\{ \text{StockCode}_j : j \in i \}|$ |
+| $A_i$ | `AvgOrderValue` | mean invoice total |
+| $P_i$ | `AvgUnitPrice` | $\sum_j q_j p_j / \sum_j q_j$ (quantity-weighted) |
+| $T_i$ | `TenureDays` | $\text{LastPurchase}_i - \text{FirstPurchase}_i$ |
+| $C_i$ | `ReturnInvoices` | count of cancellation invoices |
+| $r_i$ | `ReturnRate` | $C_i / (F_i + C_i)$ |
+| $\rho_i$ | `ReturnValueRate` | $V_i / M_i^{\text{gross}}$ |
+| $S_i$ | `SinglePurchase` | $\mathbf{1}\{F_i = 1\}$ |
+
+`AvgUnitPrice` is **quantity-weighted** rather than the mean of
+line-level `UnitPrice`, since the line-level mean overweights tiny
+low-priced items. We additionally winsorise:
+$$
+P_i^{\,\text{winsor}} = \min\!\bigl(P_i,\; Q_{0.99}(P)\bigr).
+$$
+Right-skewed features get the standard log transform
+$\tilde{x} = \log(1 + x)$; for `NetMonetary`, which can be slightly
+negative when cancellations exceed gross sales, we use the
+sign-preserving $\tilde{x} = \mathrm{sgn}(x)\,\log(1 + |x|)$.
+
+# Exploratory data analysis
+
+Three EDA findings drove the modelling choices.
+
+**Heavy right-skew on monetary.** The top ~1% of customers control
+roughly a quarter of net revenue; the top 5% control around half. This
+is documented as a "top-customer revenue concentration curve" rather
+than a Lorenz curve (a true Lorenz curve sorts ascending). The log
+transform reduces but does not eliminate the skew — the upper shoulder
+of $\log(1+M^{\text{net}})$ is real wholesale-leaning customers, kept
+in and addressed via sensitivity analysis rather than removed.
+
+**Severe collinearity.** $M^{\text{gross}} \approx M^{\text{net}}
+\approx Q \approx F$ form a tight block under both Pearson and Spearman
+correlation. `AvgOrderValue` and `AvgOrderItems` carry essentially the
+same information; only `AvgOrderValue` is retained. Recency is largely
+independent of the spending block.
+
+**Geographic skew.** UK $\approx 83\%$ of revenue. Including `Country`
+as a clustering input would force a near-binary split that drowns out
+behavioural signal; `Country` is therefore excluded from clustering and
+re-introduced only as a profiling variable.
+
+A separate finding: `StockCode 23843` ("PAPER CRAFT, LITTLE BIRDIE")
+dominates product-level revenue, driven almost entirely by a single
+customer's single bulk order. Per-cluster product profiles are quoted
+both with and without 23843; the report's narrative uses the
+without-anomaly version.
+
+# PCA methodology and interpretation
+
+The modelling matrix $\mathbf{X} \in \mathbb{R}^{n \times p}$ uses
+$p = 7$ features:
+$$
+\bigl(\,\log(1+R),\; \log(1+F),\; \widetilde{\log}\,M^{\text{net}},\;
+       \log(1+U),\; \log(1+A),\; P^{\,\text{winsor}},\; T \,\bigr).
+$$
+We standardise column-wise to $\mathbf{Z}$ with zero mean and unit
+variance, compute the correlation matrix
+$\mathbf{S} = \tfrac{1}{n-1}\mathbf{Z}^\top \mathbf{Z}$, and find
+eigenvectors $\mathbf{v}_1, \dots, \mathbf{v}_p$ with eigenvalues
+$\lambda_1 \ge \dots \ge \lambda_p$. The $k$-th principal component
+score for customer $i$ is
+$$
+\mathrm{PC}_{ik} = \mathbf{z}_i^\top \mathbf{v}_k,
+$$
+and the proportion of variance explained by component $k$ is
+$\mathrm{PVE}_k = \lambda_k / \sum_m \lambda_m$. We retain the smallest
+$K$ such that $\sum_{k\le K} \mathrm{PVE}_k \ge 0.80$ (default $K = 3$).
+
+PC signs are arbitrary in PCA: $\mathbf{v}_k$ and $-\mathbf{v}_k$ are
+equally valid, so interpretation is in terms of the *contrast* across
+features, not the absolute sign.
+
+**PC1 — engagement / customer value.** Positive on $\log F$,
+$\widetilde{\log}\,M^{\text{net}}$, $\log U$, and $T$; negative on
+$\log R$. High PC1 = recent, frequent, broad-product, longer-tenure
+customers. Low PC1 = lapsed one-time buyers.
+
+**PC2 — order-size vs. tenure contrast.** Negative on $\log A$ and
+$P^{\,\text{winsor}}$; positive on $T$ and $\log F$. Low PC2 =
+wholesale-leaning behaviour (fewer, larger, higher-priced orders).
+PC2 is *not* purely a "tenure / lifecycle" axis; that description omits
+the AvgOrderValue contrast which is the more informative half.
+
+**PC3 — residual price-point.** Once PC1 and PC2 absorb the engagement
+and order-size dimensions, PC3 picks up the remaining
+$P^{\,\text{winsor}}$ signal — what tier of price the customer
+typically buys at.
+
+# Cluster selection
+
+K-means on the PC scores minimises
+$$
+\min_{C_1, \dots, C_K}\;\sum_{k=1}^{K}\sum_{i \in C_k}
+\left\| \mathbf{y}_i - \boldsymbol{\mu}_k \right\|^2,\qquad
+\boldsymbol{\mu}_k = \frac{1}{|C_k|}\sum_{i \in C_k}\mathbf{y}_i .
+$$
+We sweep $k \in \{2, \dots, 10\}$ with `nstart = 50` and a fixed seed,
+reporting three diagnostics:
+
+* **Within-cluster sum of squares (elbow).** Strictly decreasing in $k$;
+  we look for a "kink" where the marginal gain flattens.
+* **Mean silhouette width.** For each customer
+  $s(i) = (b(i) - a(i)) / \max(a(i), b(i))$ where $a(i)$ is the average
+  distance to other points in customer $i$'s cluster and $b(i)$ is the
+  minimum average distance to points in another cluster. Higher
+  $\bar s$ means clearer separation.
+* **Gap statistic** (Tibshirani 2001).
+  $\mathrm{Gap}(k) = \mathbb{E}_n^*[\log W_k] - \log W_k$ compares
+  observed within-cluster dispersion $W_k$ to a uniform-noise
+  reference. The **SE-max rule** picks the smallest $k$ such that
+  $\mathrm{Gap}(k) \ge \mathrm{Gap}(k+1) - \mathrm{SE}_{k+1}$, biased
+  toward parsimony.
+
+The diagnostics agree broadly. Silhouette peaks at $k = 2$ and remains
+competitive at $k = 3$; the gap-statistic SE-max rule selects $k = 3$;
+the elbow is gradual. We adopt **$k = 3$** as the final segmentation
+because (a) it is statistically defensible under the most rigorous
+diagnostic, (b) it produces interpretable high / mid / low value
+segments rather than the degenerate two-way split that $k = 2$
+produces, and (c) the persona-level profiles (next section) are
+materially more actionable. $k = 2$ is retained as a sensitivity model.
+
+# Cluster validation
+
+**Bootstrap stability** (Hennig 2007). Resample customers with
+replacement, refit, match each bootstrapped cluster back to its
+original via Jaccard similarity
+$J(A, B) = |A \cap B| \,/\, |A \cup B|$, and report the per-cluster
+mean across bootstraps. Jaccard $\ge 0.75$ = stable; $< 0.6$ = noise.
+K-means at $k = 3$ produces all three Jaccards above ~0.87 — a strong
+result. Ward hierarchical clustering at the same $k$ produces one
+stable cluster (~0.81) and two borderline ones (~0.59, 0.67).
+
+**Adjusted Rand index** (`mclust::adjustedRandIndex`) compares two
+partitions while adjusting for chance agreement; ARI $= 1$ means
+identical labels (up to relabelling), ARI $= 0$ means agreement no
+better than chance. We report two ARIs:
+
+* k-means vs. Ward: quantifies the partial disagreement that the
+  contingency table makes visible. The cross-tab is *not* cleanly
+  block-diagonal — k-means prefers spherical equal-size clusters; Ward
+  does not.
+* k-means on raw vs. scaled PC scores: tests whether PC1's larger
+  variance (which weights it more heavily under Euclidean distance) is
+  doing the segmentation alone. ARI close to 1 means the segmentation
+  is robust to that preprocessing choice.
+
+Because the project goal is *stable* customer segmentation, k-means is
+promoted as the final label source despite Ward's marginally higher
+silhouette.
+
+# Final customer profiles
+
+Cluster labels are re-assigned in descending order of median net spend
+so that A is always the highest-value group, C the lowest, regardless
+of the random seed.
+
+| Cluster | Approx. share of customers | Approx. share of net revenue | Description |
+|---|---|---|---|
+| **A — Loyal high-value** | ~28% | ~75% | Recent, frequent, broad product variety, long tenure. Possible wholesale-leaning behaviour. |
+| **B — Developing mid-value** | ~38% | ~21% | Moderate spend and frequency, mid-tenure. Retention / upsell target. |
+| **C — Lapsed one-time** | ~34% | ~4% | Single-purchase predominant ($S_i = 1$), long recency, low spend. Win-back or accept as low margin. |
+
+`TenureDays = 0` in cluster C does **not** mean "new customer" — the
+`SinglePurchase` flag confirms these are predominantly customers who
+bought exactly once and have not returned. They should be described as
+*lapsed*, not new.
+
+A shallow `rpart` decision tree fit on the log-features recovers the
+cluster labels with high in-sample accuracy from a handful of axis-
+aligned thresholds on Recency, Frequency, and NetMonetary. This is a
+**descriptive surrogate model**, not a predictive one — the tree is
+fit and scored on the same data, so its accuracy is not evidence of
+out-of-sample generalisation. Its purpose is to show that the
+segmentation can be communicated to a non-statistical audience as a
+small set of RFM thresholds.
+
+# Software engineering and reproducibility
+
+The repository is organised so that `make all` from a clean checkout
+reproduces every artefact:
+
+```
+make data    -> python src/python/data_prep.py
+make model   -> Rscript scripts/run_pipeline.R
+make reports -> Rscript scripts/render_reports.R
+make test    -> testthat::test_dir("tests")
+```
+
+The pipeline is parameterised through `config.yml`: paths, the
+seven-feature modelling matrix, $K = 3$, `nstart = 50`, the bootstrap
+$B$, and the random seed all live there. Every R module sources
+`src/R/00_setup.R`, which loads the seed and packages once.
+
+Data integrity is enforced at three layers: assertions inside
+`src/python/data_prep.py`, runtime checks in `src/R/01_validate_data.R`,
+and `testthat` tests in `tests/` that re-check the artefacts after the
+pipeline writes them.
+
+The deployable artefact is `models/segmentation_pipeline.rds`, which
+carries the prcomp object (with center/scale vectors and rotation
+matrix), the k-means centroids, the cluster label map, the personas,
+the version, the timestamp, and the diagnostic numbers. The function
+`score_customers()` in `src/R/06_score_new_customers.R` uses it to
+project new customer feature vectors into PC space and assign each to
+its nearest centroid:
+$$
+\mathbf{z}_{\text{new}} = \frac{\mathbf{x}_{\text{new}} -
+\boldsymbol{\mu}_{\text{train}}}{\boldsymbol{\sigma}_{\text{train}}},\quad
+\mathbf{y}_{\text{new}} = \mathbf{z}_{\text{new}} \mathbf{V}_{1:K},\quad
+\mathrm{cluster}(\mathbf{y}_{\text{new}}) =
+\arg\min_k \|\mathbf{y}_{\text{new}} - \boldsymbol{\mu}_k\|^2.
+$$
+
+# Limitations
+
+* **Gross vs. net monetary.** The pipeline defaults to `NetMonetary`;
+  earlier iterations used `GrossMonetary` and would assign customer
+  12346 (large gross + matching cancellation) to the high-value
+  segment. Switching `monetary_source` in `config.yml` and re-fitting
+  is the recommended sensitivity check.
+* **High-value tail.** A small number of customers in the top 1% of
+  spend carry disproportionate weight in cluster centroids. The
+  `SinglePurchase` flag and `ReturnValueAbs` profile diagnose whether
+  their inclusion is appropriate.
+* **`StockCode 23843` anomaly.** A single bulk order skews any
+  product-level interpretation that includes it. Product profiles in
+  the report are quoted from the without-anomaly version.
+* **One-year window.** Recency and tenure are bounded by the
+  observation window; segments labelled "recent" may simply be
+  customers who have not had time to lapse.
+* **Descriptive, not causal.** Cluster membership is an unsupervised
+  assignment. It does not predict future behaviour without further
+  modelling, and the decision-tree approximation is in-sample only.
+
+# Recommended next steps
+
+* Promote `NetMonetary` to the canonical revenue measure across all
+  reports; retain `GrossMonetary` only as a sensitivity benchmark.
+* Re-fit the pipeline excluding the top 1% of customers by spend;
+  report whether the three-segment story survives.
+* Compare against richer clusterers — Gaussian mixture models
+  (`mclust::Mclust`) for soft assignments and BIC-based $k$ selection,
+  or PAM with Gower distance for handling `Country` natively.
+* If a second period of transaction data becomes available, score the
+  new transactions through `score_customers()` and check whether
+  intra-segment behaviour remains coherent. That is the only true
+  external validity check for an unsupervised segmentation.
+* Translate segments into measurable marketing experiments — a
+  retention test on cluster B with a defined upsell metric, or a
+  win-back test on the most-recent slice of cluster C.
+
+# Conclusion
+
+This project builds a reproducible unsupervised learning pipeline for
+customer segmentation. Raw transactions become customer-level RFM and
+behavioural features (with cancellations preserved separately so net
+monetary can be computed honestly), are projected into a lower-
+dimensional PCA space, and are clustered with k-means, validated by
+bootstrap stability and adjusted Rand against Ward hierarchical
+clustering as a robustness check. The final $k = 3$ segmentation
+separates customers into a high-value loyal core (cluster A), a
+developing mid-value middle (cluster B), and a low-value / lapsed
+one-time tail (cluster C). PCA identifies engagement / customer value
+as the dominant axis of variation; later components capture order-size
+and price-point contrasts.
+
+The principal statistical finding is that customer value is highly
+concentrated — a relatively small group of recent, frequent, high-
+spending customers accounts for a large share of revenue. The segments
+are descriptive, interpretable, and operationally useful, but they
+depend on preprocessing choices documented in `models/model_card.md`.
+The pipeline is shipped as a reproducible repository — configuration
+files, validation checks, tests, saved model artefacts, and a scoring
+function for assigning future customers to the learned segments — not
+as a collection of disconnected notebooks.

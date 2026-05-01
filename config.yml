@@ -1,0 +1,62 @@
+# Project-wide configuration. Loaded by every R script and the
+# Python feature builder. Edit here, never hardcode in source files.
+
+project:
+  name: uci-retail-segmentation
+  version: "1.0.0"
+
+seed: 1
+
+data:
+  raw_dir:       data/raw
+  interim_dir:   data/interim
+  processed_dir: data/processed
+  outputs_dir:   data/outputs
+
+  online_retail_clean:        data/interim/online_retail_clean.csv
+  online_retail_cancelled:    data/interim/online_retail_cancelled.csv
+  customer_features:          data/processed/customer_features.csv
+  customer_pc_scores:         data/processed/customer_pc_scores.csv
+  customer_clusters:          data/processed/customer_clusters.csv
+  customer_features_labeled:  data/processed/customer_features_labeled.csv
+  data_quality_summary:       data/outputs/data_quality_summary.txt
+
+features:
+  # Default modelling matrix used by PCA and clustering.
+  # NetMonetary preferred; if cancellation values are unreliable, swap
+  # log_NetMonetary -> log_GrossMonetary and document the limitation.
+  feature_cols:
+    - log_Recency
+    - log_Frequency
+    - log_NetMonetary
+    - log_UniqueProducts
+    - log_AvgOrderValue
+    - AvgUnitPrice_winsor
+    - TenureDays
+  monetary_source: net          # "net" or "gross"
+  winsor_quantile: 0.99
+
+pca:
+  n_components: 3
+  center: true
+  scale: true
+  variance_target: 0.80         # min cumulative PVE for n_components
+
+clustering:
+  k_star: 3
+  k_grid: [2, 3, 4, 5, 6, 7, 8, 9, 10]
+  nstart: 50
+  iter_max: 100
+  bootstrap_B: 50
+  jaccard_stable: 0.75
+  jaccard_unstable: 0.60
+  final_label_source: kmeans    # "kmeans" or "hclust"
+
+models:
+  pca_model:             models/pca_model.rds
+  kmeans_model:          models/kmeans_model.rds
+  segmentation_pipeline: models/segmentation_pipeline.rds
+  model_card:            models/model_card.md
+
+reports_dir: reports
+figures_dir: figures

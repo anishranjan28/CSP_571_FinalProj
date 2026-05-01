@@ -1,0 +1,268 @@
+---
+title: "02_PCA — Principal Component Analysis"
+author: "Anish"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, message = FALSE, warning = FALSE,
+  fig.width = 8, fig.height = 5, dpi = 110
+)
+
+library(tidyverse)
+library(scales)
+
+set.seed(1)
+theme_set(theme_minimal(base_size = 12))
+```
+
+# 1. What this notebook does
+
+PCA serves two roles in this project (ISLR §12.2 / §12.4.3):
+
+1.  **Visualisation** — project customers onto PC1–PC2 to eyeball cluster
+    structure later.
+2.  **Preprocessing** — replace ~7 correlated input features with 2–3
+    orthogonal PC scores to feed into k-means / hclust in
+    `03_clustering.Rmd`.
+
+Output: `../data/customer_pc_scores.csv` containing
+`CustomerID + PC1..PCk` (k = 3 by default).
+
+# 2. Load and validate
+
+```{r load}
+customer <- read_csv("../data/customer_features.csv",
+                     show_col_types = FALSE)
+
+stopifnot(
+  "CustomerID" %in% names(customer),
+  !anyDuplicated(customer$CustomerID),
+  nrow(customer) > 0
+)
+
+glimpse(customer)
+```
+
+# 3. Modelling matrix
+
+The seven-feature input drops everything that the EDA flagged as redundant
+or distortive:
+
+* `log_NetMonetary` instead of `log_GrossMonetary` — captures the
+  customer's actual contribution to revenue net of returns.
+* `AvgUnitPrice_winsor` instead of raw `AvgUnitPrice` — without
+  winsorising, a few extreme items dominate PC2/PC3 loadings.
+* `AvgOrderValue` kept (drop `AvgBasketValue`, which was an inconsistent
+  line-level proxy in earlier iterations and is no longer produced by
+  `dataPreprocess.py`).
+* `Country` excluded — UK dominance would force a near-degenerate split.
+* `ReturnRate` / `ReturnValueRate` held back as profiling variables
+  (sparse, mostly zero).
+
+```{r build-X}
+feature_cols <- c("log_Recency", "log_Frequency", "log_NetMonetary",
+                  "log_UniqueProducts", "log_AvgOrderValue",
+                  "AvgUnitPrice_winsor", "TenureDays")
+
+X <- customer |>
+  select(CustomerID, all_of(feature_cols)) |>
+  drop_na()
+
+# Sanity-check: row count must equal customer count.
+stopifnot(nrow(X) == nrow(customer))
+
+# Confirm winsorisation worked — pre-winsor max can be hundreds of pounds.
+summary(X$AvgUnitPrice_winsor)
+quantile(X$AvgUnitPrice_winsor, c(.5, .9, .99, 1))
+
+dim(X)
+summary(X[, feature_cols])
+```
+
+# 4. Fit PCA
+
+`prcomp(center = TRUE, scale. = TRUE)` standardises every column to zero
+mean / unit variance — required because `AvgUnitPrice_winsor` and
+`TenureDays` are on totally different scales from the log features.
+
+```{r pca-fit}
+pr.out <- prcomp(X[, feature_cols], center = TRUE, scale. = TRUE)
+pr.out
+```
+
+# 5. Variance explained
+
+```{r pve}
+pve <- pr.out$sdev^2 / sum(pr.out$sdev^2)
+pve_df <- tibble(
+  PC         = factor(paste0("PC", seq_along(pve)),
+                      levels = paste0("PC", seq_along(pve))),
+  PVE        = pve,
+  cumulative = cumsum(pve)
+)
+pve_df
+```
+
+```{r scree, fig.height=3.5}
+p_scree <- ggplot(pve_df, aes(PC, PVE)) +
+  geom_col(fill = "steelblue") +
+  geom_text(aes(label = percent(PVE, accuracy = 0.1)),
+            vjust = -0.4, size = 3) +
+  scale_y_continuous(labels = percent_format(),
+                     expand = expansion(mult = c(0, 0.15))) +
+  labs(title = "Scree plot", x = NULL, y = "Proportion of variance")
+
+p_cum <- ggplot(pve_df, aes(PC, cumulative, group = 1)) +
+  geom_line(colour = "steelblue", linewidth = 1) +
+  geom_point(colour = "steelblue", size = 2) +
+  geom_hline(yintercept = c(0.7, 0.8, 0.9),
+             linetype = "dashed", colour = "grey60") +
+  scale_y_continuous(labels = percent_format(), limits = c(0, 1)) +
+  labs(title = "Cumulative variance", x = NULL, y = "Cumulative PVE")
+
+gridExtra::grid.arrange(p_scree, p_cum, nrow = 1)
+```
+
+```{r kaiser}
+tibble(
+  PC          = paste0("PC", seq_along(pr.out$sdev)),
+  eigenvalue  = pr.out$sdev^2,
+  keep_kaiser = pr.out$sdev^2 > 1
+)
+```
+
+Kaiser's rule (eigenvalue > 1) gives a quick orthogonal check on the
+elbow / variance-threshold heuristic. We typically keep the first three
+PCs across all three rules.
+
+# 6. Loadings — what each PC actually means
+
+```{r loadings}
+loadings <- as_tibble(pr.out$rotation, rownames = "feature")
+loadings |> mutate(across(where(is.numeric), \(x) round(x, 2)))
+```
+
+```{r loadings-heatmap, fig.height=4}
+loadings |>
+  pivot_longer(-feature, names_to = "PC", values_to = "loading") |>
+  filter(PC %in% paste0("PC", 1:4)) |>
+  mutate(PC = factor(PC, levels = paste0("PC", 1:4))) |>
+  ggplot(aes(PC, fct_rev(feature), fill = loading)) +
+  geom_tile() +
+  geom_text(aes(label = sprintf("%.2f", loading)), size = 3) +
+  scale_fill_gradient2(low = "firebrick", mid = "white",
+                       high = "steelblue", midpoint = 0,
+                       limits = c(-1, 1)) +
+  labs(title = "Loadings (PC1–PC4)", x = NULL, y = NULL)
+```
+
+**Note on signs.** PCA component signs are arbitrary — `prcomp` could
+have flipped any column. What matters is the *contrast* across features,
+not the absolute sign. Read each PC as "high vs. low" along the loadings
+displayed below.
+
+Reading the loadings on the cleaned/winsorised features:
+
+* **PC1 — engagement / customer value.** Loads positively on
+  `log_Frequency`, `log_NetMonetary`, `log_UniqueProducts`, and
+  `TenureDays`, and negatively on `log_Recency`. High PC1 = recent,
+  frequent, broad-product, repeat-relationship customers. Low PC1 =
+  lapsed one-time buyers.
+* **PC2 — order-size vs. tenure contrast.** Strong negative loading on
+  `log_AvgOrderValue` and `AvgUnitPrice_winsor`, positive on `TenureDays`
+  and `log_Frequency`. Low PC2 ≈ wholesale-leaning behaviour (fewer,
+  larger orders of higher-priced items). High PC2 ≈ smaller, more frequent
+  transactions over a longer relationship. **It is *not* purely a
+  "tenure / lifecycle" axis** — describing it that way ignores the
+  AvgOrderValue contrast, which is the more informative half.
+* **PC3 — residual price-point.** Once PC1 and PC2 absorb engagement and
+  order-size, PC3 picks up what's left of `AvgUnitPrice_winsor` —
+  essentially the price tier the customer typically buys at.
+
+# 7. PC scores — the new feature space
+
+```{r scores}
+scores <- as_tibble(pr.out$x) |>
+  mutate(CustomerID = X$CustomerID, .before = 1) |>
+  left_join(customer |> select(CustomerID, GrossMonetary, NetMonetary,
+                               Frequency, Recency, Country,
+                               ReturnRate, ReturnValueRate, SinglePurchase),
+            by = "CustomerID")
+
+stopifnot(nrow(scores) == nrow(X), !anyDuplicated(scores$CustomerID))
+head(scores)
+```
+
+## 7a. PC1 vs PC2, coloured by net spend
+
+```{r pc12-monetary}
+ggplot(scores, aes(PC1, PC2,
+                   colour = log10(pmax(NetMonetary, 1) + 1))) +
+  geom_point(alpha = 0.5, size = 0.8) +
+  scale_colour_viridis_c(option = "magma",
+                         name = expression(log[10]~NetMonetary)) +
+  labs(title = "Customers in PC1–PC2 space, coloured by net spend",
+       subtitle = "PC1 should align with engagement / customer value")
+```
+
+## 7b. PC1 vs PC2, coloured by recency
+
+```{r pc12-recency}
+ggplot(scores, aes(PC1, PC2, colour = Recency)) +
+  geom_point(alpha = 0.5, size = 0.8) +
+  scale_colour_viridis_c(option = "viridis", direction = -1,
+                         name = "Recency (days)") +
+  labs(title = "PC1–PC2 space, coloured by recency",
+       subtitle = "Recent customers should sit on the engagement side of PC1")
+```
+
+# 8. Biplot
+
+A ggplot biplot reads more clearly than `biplot(pr.out)` for the report.
+
+```{r biplot, fig.height=6, fig.width=7}
+arrow_scale <- with(pr.out,
+                    min(max(abs(x[, 1])) / max(abs(rotation[, 1])),
+                        max(abs(x[, 2])) / max(abs(rotation[, 2])))) * 0.7
+
+arrows_df <- as_tibble(pr.out$rotation, rownames = "feature") |>
+  mutate(PC1 = PC1 * arrow_scale,
+         PC2 = PC2 * arrow_scale)
+
+ggplot(scores, aes(PC1, PC2)) +
+  geom_point(alpha = 0.25, size = 0.6, colour = "grey50") +
+  geom_segment(data = arrows_df,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               arrow = arrow(length = unit(0.2, "cm")),
+               colour = "firebrick", linewidth = 0.7) +
+  geom_text(data = arrows_df,
+            aes(x = PC1 * 1.08, y = PC2 * 1.08, label = feature),
+            colour = "firebrick", size = 3.5) +
+  labs(title = "Biplot — customers + variable loadings on PC1–PC2",
+       x = sprintf("PC1 (%s)", percent(pve[1], accuracy = 0.1)),
+       y = sprintf("PC2 (%s)", percent(pve[2], accuracy = 0.1)))
+```
+
+# 9. PC1 sanity check — symmetric core, real upper tail
+
+```{r pc1-hist, fig.height=3.5}
+ggplot(scores, aes(PC1)) +
+  geom_histogram(bins = 60, fill = "steelblue", colour = "white") +
+  labs(title = "Distribution of PC1 (engagement axis)",
+       subtitle = paste("Approximately symmetric in the bulk,",
+                        "but a real upper-shoulder tail of high-value customers"),
+       x = "PC1", y = "Customers")
+```
+
+PC1 is approximately symmetric in the bulk but retains a right shoulder
+representing the wholesale-leaning tail. We do **not** claim the
+distribution is "well-behaved eno
