@@ -3,7 +3,8 @@ title: "02_PCA — Principal Component Analysis"
 author: "Anish"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
-  pdf_document: default
+  pdf_document:
+    latex_engine: xelatex
   html_document:
     df_print: paged
 editor_options:
@@ -40,7 +41,7 @@ Output: `../data/customer_pc_scores.csv` containing
 # 2. Load and validate
 
 ```{r load}
-customer <- read_csv("../data/customer_features.csv",
+customer <- read_csv("../data/processed/customer_features.csv",
                      show_col_types = FALSE)
 
 stopifnot(
@@ -179,8 +180,8 @@ Reading the loadings on the cleaned/winsorised features:
   lapsed one-time buyers.
 * **PC2 — order-size vs. tenure contrast.** Strong negative loading on
   `log_AvgOrderValue` and `AvgUnitPrice_winsor`, positive on `TenureDays`
-  and `log_Frequency`. Low PC2 ≈ wholesale-leaning behaviour (fewer,
-  larger orders of higher-priced items). High PC2 ≈ smaller, more frequent
+  and `log_Frequency`. Low PC2 ~ wholesale-leaning behaviour (fewer,
+  larger orders of higher-priced items). High PC2 ~ smaller, more frequent
   transactions over a longer relationship. **It is *not* purely a
   "tenure / lifecycle" axis** — describing it that way ignores the
   AvgOrderValue contrast, which is the more informative half.

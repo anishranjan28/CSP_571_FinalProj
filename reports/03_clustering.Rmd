@@ -3,7 +3,8 @@ title: "03_clustering — k-means and hierarchical"
 author: "Anish"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
-  pdf_document: default
+  pdf_document:
+    latex_engine: xelatex
   html_document:
     df_print: paged
 ---
@@ -36,8 +37,8 @@ stability via bootstrap, and save per-customer labels for
 # 2. Load and validate
 
 ```{r load}
-pc       <- read_csv("../data/customer_pc_scores.csv", show_col_types = FALSE)
-customer <- read_csv("../data/customer_features.csv",  show_col_types = FALSE)
+pc       <- read_csv("../data/processed/customer_pc_scores.csv", show_col_types = FALSE)
+customer <- read_csv("../data/processed/customer_features.csv",  show_col_types = FALSE)
 
 stopifnot(
   "CustomerID" %in% names(pc),
@@ -87,7 +88,7 @@ ggplot(elbow_df, aes(k, wcss)) +
 
 For each customer, silhouette width compares its average distance to
 others *in its own cluster* against its average distance to the
-*next-nearest cluster*. Mean silhouette ≈ 0 means clusters overlap; ≈ 1
+*next-nearest cluster*. Mean silhouette ~ 0 means clusters overlap; ~ 1
 means they're well separated. ISLR §12.4 doesn't formalise this, but it's
 the standard add-on.
 

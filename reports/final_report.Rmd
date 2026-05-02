@@ -4,19 +4,16 @@ author: "Anish Ranjan"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
   pdf_document:
+    latex_engine: xelatex
     toc: true
     toc_depth: 2
     number_sections: true
   html_document:
-    toc: true
-    toc_float: true
     df_print: paged
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
-source(file.path("..", "src", "R", "00_setup.R"))
-source(file.path("..", "src", "R", "02_features.R"))
 ```
 
 # Project objective

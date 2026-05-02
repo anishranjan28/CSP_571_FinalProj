@@ -3,7 +3,8 @@ title: "04_profiles — naming the segments"
 author: "Anish"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
-  pdf_document: default
+  pdf_document:
+    latex_engine: xelatex
   html_document:
     df_print: paged
 ---
@@ -36,13 +37,13 @@ named, interpretable customer personas. Output:
 # 2. Load + validate
 
 ```{r load}
-assignments <- read_csv("../data/customer_clusters.csv",
+assignments <- read_csv("../data/processed/customer_clusters.csv",
                         show_col_types = FALSE)
-customer    <- read_csv("../data/customer_features.csv",
+customer    <- read_csv("../data/processed/customer_features.csv",
                         show_col_types = FALSE)
-tx          <- read_csv("../data/online_retail_clean.csv",
+tx          <- read_csv("../data/interim/online_retail_clean.csv",
                         show_col_types = FALSE)
-cancelled   <- read_csv("../data/online_retail_cancelled.csv",
+cancelled   <- read_csv("../data/interim/online_retail_cancelled.csv",
                         show_col_types = FALSE)
 
 tx$InvoiceDate        <- as_datetime(tx$InvoiceDate)
@@ -226,17 +227,17 @@ ggplot(z_profile, aes(feature, z, group = cluster, colour = cluster)) +
 
 # 7. Geographic composition
 
-`Country` was held out of clustering on purpose (UK ≈ 83%). Using it now
+`Country` was held out of clustering on purpose (UK ~ 83%). Using it now
 is descriptive only — it tells us whether segments correlate with
 geography after the fact.
 
 ```{r country, fig.height=4}
-top_countries <- cust |> count(Country, sort = TRUE) |>
+top_countries <- cust |> dplyr::count(Country, sort = TRUE) |>
   slice_max(n, n = 6) |> pull(Country)
 
 cust |>
   mutate(Country = ifelse(Country %in% top_countries, Country, "Other")) |>
-  count(cluster, Country) |>
+  dplyr::count(cluster, Country) |>
   group_by(cluster) |>
   mutate(share = n / sum(n)) |>
   ggplot(aes(cluster, share, fill = Country)) +
@@ -275,4 +276,6 @@ top_without <- tx |>
   ungroup()
 
 top_without |>
-  mut
+  mutate(Description = str_trunc(Description, 35),
+         revenue     = dollar(revenue, prefix = pound)) |>
+  kable(caption = "Top 5 products by revenue, per cluster (EXCLUDING 23843)")

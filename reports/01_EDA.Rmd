@@ -3,7 +3,8 @@ title: "01_EDA — Online Retail exploratory data analysis"
 author: "Anish"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
-  pdf_document: default
+  pdf_document:
+    latex_engine: xelatex
   html_document:
     df_print: paged
 ---
@@ -48,11 +49,11 @@ This notebook does the EDA only; modelling lives in `02_PCA.Rmd` onwards.
 # 2. Load and validate
 
 ```{r load}
-tx        <- read_csv("../data/online_retail_clean.csv",
+tx        <- read_csv("../data/interim/online_retail_clean.csv",
                       show_col_types = FALSE)
-cancelled <- read_csv("../data/online_retail_cancelled.csv",
+cancelled <- read_csv("../data/interim/online_retail_cancelled.csv",
                       show_col_types = FALSE)
-customer  <- read_csv("../data/customer_features.csv",
+customer  <- read_csv("../data/processed/customer_features.csv",
                       show_col_types = FALSE)
 
 tx$InvoiceDate        <- as_datetime(tx$InvoiceDate)
@@ -231,7 +232,7 @@ invoices (see §9 anomaly check).
 library(gridExtra)
 
 p_dow <- tx |>
-  count(DOW = factor(DOW,
+  dplyr::count(DOW = factor(DOW,
                      levels = c("Monday","Tuesday","Wednesday","Thursday",
                                 "Friday","Saturday","Sunday")),
         wt = Amount, name = "revenue") |>
@@ -241,7 +242,7 @@ p_dow <- tx |>
   labs(title = "Revenue by day of week", x = NULL, y = NULL)
 
 p_hour <- tx |>
-  count(Hour, wt = Amount, name = "revenue") |>
+  dplyr::count(Hour, wt = Amount, name = "revenue") |>
   ggplot(aes(Hour, revenue)) +
   geom_col(fill = "steelblue") +
   scale_y_continuous(labels = label_comma(prefix = pound)) +
@@ -254,13 +255,27 @@ gridExtra::grid.arrange(p_dow, p_hour, nrow = 1)
 
 ```{r country, fig.height=4.5}
 tx |>
-  count(Country, wt = Amount, name = "revenue", sort = TRUE) |>
-  mutate(share   = revenue / sum(revenue),
-         Country = fct_reorder(Country, revenue)) |>
+  dplyr::count(Country, wt = Amount, name = "revenue", sort = TRUE) |>
+  mutate(
+    share   = revenue / sum(revenue),
+    Country = fct_reorder(Country, revenue)
+  ) |>
   slice_max(revenue, n = 10) |>
   ggplot(aes(revenue, Country)) +
   geom_col(fill = "steelblue") +
-  geom_text(aes(label = percent(share, accuracy = 0.1)),
-            hjust = -0.1, size = 3) +
-  scale_x_continuous(labels = label_comma(prefix = pound),
-                     expand = expansion(mul
+  geom_text(
+    aes(label = percent(share, accuracy = 0.1)),
+    hjust = -0.1,
+    size = 3
+  ) +
+  scale_x_continuous(
+    labels = label_comma(prefix = pound),
+    expand = expansion(mult = c(0, 0.15))
+  ) +
+  labs(
+    title = "Top 10 countries by revenue",
+    x = "Revenue",
+    y = NULL
+  ) +
+  coord_cartesian(clip = "off")
+```

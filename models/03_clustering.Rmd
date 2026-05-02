@@ -36,7 +36,7 @@ stability via bootstrap, and save per-customer labels for
 # 2. Load and validate
 
 ```{r load}
-pc       <- read_csv("../data/processed/customer_pc_scores.csv", show_col_types = FALSE)
+pc       <- read_csv("../data/customer_pc_scores.csv", show_col_types = FALSE)
 customer <- read_csv("../data/processed/customer_features.csv",  show_col_types = FALSE)
 
 stopifnot(

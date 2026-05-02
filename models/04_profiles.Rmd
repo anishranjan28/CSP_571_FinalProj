@@ -40,10 +40,8 @@ assignments <- read_csv("../data/processed/customer_clusters.csv",
                         show_col_types = FALSE)
 customer    <- read_csv("../data/processed/customer_features.csv",
                         show_col_types = FALSE)
-tx          <- read_csv("../data/processed/online_retail_clean.csv",
-                        show_col_types = FALSE)
-cancelled   <- read_csv("../data/processed/online_retail_cancelled.csv",
-                        show_col_types = FALSE)
+tx        <- read_csv("../data/interim/online_retail_clean.csv",     show_col_types = FALSE)
+cancelled <- read_csv("../data/interim/online_retail_cancelled.csv", show_col_types = FALSE)
 
 tx$InvoiceDate        <- as_datetime(tx$InvoiceDate)
 cancelled$InvoiceDate <- as_datetime(cancelled$InvoiceDate)

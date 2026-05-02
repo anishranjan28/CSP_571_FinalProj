@@ -9,12 +9,12 @@ data/outputs/*
 models/*.rds
 
 # Knitted reports
-reports/*.html
-reports/*.pdf
-reports/*.tex
-reports/*.log
-reports/*_cache/
-reports/*_files/
+#reports/*.html
+#reports/*.pdf
+#reports/*.tex
+#reports/*.log
+#reports/*_cache/
+#reports/*_files/
 
 # R session files
 .Rhistory

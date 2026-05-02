@@ -1,7 +1,7 @@
 # UCI Online Retail customer segmentation pipeline.
 # Run `make all` from the repo root to reproduce everything.
 
-PY      := python
+PY      := python3
 R       := Rscript
 CONFIG  := config.yml
 
