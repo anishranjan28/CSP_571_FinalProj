@@ -1,8 +1,8 @@
 # tests/test_pca_outputs.R
 
 library(testthat)
-source(file.path("src", "R", "00_setup.R"))
-source(file.path("src", "R", "02_features.R"))
+source(here::here("src", "R", "00_setup.R"))
+source(here::here("src", "R", "02_features.R"))
 
 
 test_that("pca_model.rds exists and is a prcomp object", {

@@ -1,5 +1,5 @@
 ---
-title: "03_clustering — k-means and hierarchical"
+title: "03_clustering   k-means and hierarchical"
 author: "Anish"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
@@ -29,7 +29,7 @@ theme_set(theme_minimal(base_size = 12))
 
 # 1. Goal
 
-Fit ISLR-Ch.12 clusterers (k-means and hierarchical) on the PC scores from
+Fit clusterers (k-means and hierarchical) on the PC scores from
 `02_PCA.Rmd`. Pick a `k` defensible under multiple criteria, validate
 stability via bootstrap, and save per-customer labels for
 `04_profiles.Rmd`.
@@ -59,13 +59,12 @@ n_pc <- ncol(Xpc)
 sprintf("Clustering on %d PCs across %d customers", n_pc, nrow(Xpc))
 ```
 
-# 3. K-means — choosing k
+# 3. K-means  choosing k
 
 ## 3a. Elbow (within-cluster SSE)
 
 The elbow plot is a heuristic: WCSS strictly decreases as `k` grows,
-because more clusters can fit the data more tightly. We look for the
-"kink" where adding another cluster stops paying off.
+because more clusters can fit the data more tightly.
 
 ```{r km-elbow, cache=TRUE}
 set.seed(1)
@@ -80,17 +79,16 @@ ggplot(elbow_df, aes(k, wcss)) +
   geom_point(colour = "steelblue", size = 2) +
   scale_x_continuous(breaks = k_grid) +
   labs(title = "K-means: WCSS vs k",
-       subtitle = "Look for the kink — the elbow",
+       subtitle = "Look for the kink   the elbow",
        x = "k", y = "Total WCSS")
 ```
 
 ## 3b. Silhouette width
 
 For each customer, silhouette width compares its average distance to
-others *in its own cluster* against its average distance to the
+others in its own cluster against its average distance to the
 *next-nearest cluster*. Mean silhouette ~ 0 means clusters overlap; ~ 1
-means they're well separated. ISLR §12.4 doesn't formalise this, but it's
-the standard add-on.
+means they're well separated. 
 
 ```{r km-sil, cache=TRUE}
 set.seed(1)
@@ -109,12 +107,12 @@ ggplot(sil_df, aes(k, silhouette)) +
        x = "k", y = "Mean silhouette")
 ```
 
-## 3c. Gap statistic — Tibshirani (2001)
+## 3c. Gap statistic   Tibshirani (2001)
 
 Compares the within-cluster dispersion in the actual data against the
 within-cluster dispersion under a uniform-noise reference distribution.
 The **SEmax rule** picks the smallest `k` such that no larger `k` is more
-than 1 standard error better — biased toward parsimony, which is exactly
+than 1 standard error better   biased toward parsimony, which is exactly
 what we want for an interpretable customer segmentation.
 
 ```{r km-gap, cache=TRUE}
@@ -123,32 +121,30 @@ gap <- clusGap(Xpc, FUN = kmeans, nstart = 25, K.max = 10, B = 50)
 print(gap, method = "Tibs2001SEmax")
 
 fviz_gap_stat(gap) +
-  labs(title = "Gap statistic — Tibs2001SEmax rule")
+  labs(title = "Gap statistic   Tibs2001SEmax rule")
 ```
 
-## 3d. Decision: k = 3 (with k = 2 as sensitivity)
+## 3d. Decision: k = 3, with k = 2 as the parsimonious benchmark
 
 Diagnostics summary:
 
-* Silhouette peaks at `k = 2` and is competitive at `k = 3`.
-* Gap statistic with the SEmax rule selects `k = 3`.
-* Elbow is gradual; no decisive kink.
+* The silhouette criterion favors `k = 2`, meaning the two-cluster solution gives the cleanest average geometric separation.
+* The gap statistic using the Tibs2001SEmax rule also selects `k = 2`, favoring the most parsimonious structure.
+* The elbow plot is gradual and does not provide a decisive visual kink.
+* However, `k = 3` still gives a meaningful and stable segmentation when evaluated against the downstream business objective: turning clusters into interpretable customer profiles.
 
-We choose **`k = 3`** because:
+We therefore select **`k = 3`** as the primary profiling solution, while treating **`k = 2`** as the statistically parsimonious benchmark.
 
-1. it is statistically defensible under SEmax (the most rigorous of the
-   three diagnostics);
-2. the silhouette difference between `k = 2` and `k = 3` is small enough
-   that gap-statistic-driven parsimony wins;
-3. `k = 3` produces interpretable high / mid / low value segments rather
-   than the degenerate "above-average vs. below-average" two-way split
-   that `k = 2` produces;
-4. the persona-level profiles in `04_profiles.Rmd` are demonstrably more
-   actionable at `k = 3`.
+This is a deliberate modeling choice. The purpose of this project is not only to find the minimum number of geometrically separated groups, but to produce customer segments that can be interpreted and acted on in `04_profiles.Rmd`. The `k = 2` solution is cleaner statistically, but it collapses the customer base into a broad high-value versus low-value split. That split is useful as a benchmark, but it is too coarse for the profiling stage because it removes the middle customer group that appears in the original-scale features.
 
-We carry **`k = 2`** as a sensitivity / simplified segmentation. The
-earlier "substantive prior of 4–6 clusters" framing is *not* what the
-diagnostics support.
+The `k = 3` solution gives a more useful structure:
+
+1. a high-value, frequent customer group;
+2. a middle/engaged retail group;
+3. a lower-value or lapsed/one-time group.
+
+This three-segment structure is more actionable than a two-way split and remains defensible because the bootstrap stability results in §6 show that the clusters are reasonably stable under resampling. Therefore, the final choice of `k = 3` is best described as an **interpretability-driven segmentation choice**, supported by stability analysis, with `k = 2` retained as the simpler statistical benchmark.
+
 
 ```{r km-final}
 set.seed(1)
@@ -160,14 +156,15 @@ round(km_fit$centers, 2)
 mean(silhouette(km_fit$cluster, d)[, "sil_width"])
 ```
 
-```{r km-k2-sensitivity}
+```{r km-k3-sensitivity}
 set.seed(1)
-km_fit_k2 <- kmeans(Xpc, centers = 2, nstart = 50, iter.max = 100)
-km_fit_k2$size
-mean(silhouette(km_fit_k2$cluster, d)[, "sil_width"])
+km_fit_k3 <- kmeans(Xpc, centers = 3, nstart = 50, iter.max = 100)
+km_fit_k3$size
+round(km_fit_k3$centers, 2)
+mean(silhouette(km_fit_k3$cluster, d)[, "sil_width"])
 ```
 
-# 4. Sensitivity — scaling the PC scores
+# 4. Sensitivity   scaling the PC scores
 
 K-means on raw PC scores weights PC1 more heavily because PC1 has the
 largest variance by construction. Scaling each PC to unit variance gives
@@ -185,18 +182,17 @@ aRI_scale <- adjustedRandIndex(km_raw$cluster, km_scaled$cluster)
 list(adjusted_rand_raw_vs_scaled = round(aRI_scale, 3))
 ```
 
-If aRI > ~0.7 the segmentation is essentially unchanged by scaling. If
-materially lower, the report should note that PC1 dominance is doing the
-heavy lifting and the conclusions are conditional on that choice.
+This check tests whether the selected two-cluster solution depends heavily on using the raw PC scores. Because raw PC scores preserve the variance ordering from PCA, PC1 receives more weight in the Euclidean distance calculation. That is appropriate here because the goal is to cluster customers along the dominant behavioral directions discovered by PCA. If the adjusted Rand index is low, the report should state that the two-cluster solution is conditional on preserving the PCA variance structure rather than giving every PC equal weight.
+
 
 # 5. Hierarchical clustering
 
-ISLR §12.4.2. Three linkages worth comparing:
+Three linkages worth comparing:
 
-* **Ward (`ward.D2`)** — minimises within-cluster variance, philosophically
+* **Ward (`ward.D2`)**   minimises within-cluster variance, philosophically
   aligned with k-means.
-* **Complete** — ISLR's lab default; compact, similar-diameter clusters.
-* **Average** — friendlier to elongated / unequal-density clusters; here
+* **Complete**   ISLR's lab default; compact, similar-diameter clusters.
+* **Average**   friendlier to elongated / unequal-density clusters; here
   as a robustness check.
 
 ```{r hc-fit, cache=TRUE}
@@ -231,8 +227,73 @@ list(adjusted_rand_kmeans_vs_ward = round(aRI_km_hc, 3))
 mean(silhouette(hc_cluster, d)[, "sil_width"])
 ```
 
-**Interpretation — be honest, not optimistic.** The cross-tab between
-k-means and Ward is *not* cleanly block-diagonal at `k = 3`; substantial
-off-diagonal mass means the algorithms disagree about boundaries. This is
-expected: k-means prefers spherical, equal-size clusters and Ward does
-not. The adjusted Rand index above quantifies
+**Interpretation** The cross-tab between k-means and Ward is not perfectly block-diagonal at `k = 3`, so the two algorithms do not assign every customer to the same segment. This is expected because k-means directly optimizes centroid-based within-cluster SSE, while Ward builds the hierarchy greedily by merging clusters that minimally increase within-cluster variance.
+
+The adjusted Rand index quantifies this agreement. A value close to 1 would mean the two methods recover essentially the same partition up to relabelling, while a value close to 0 would mean agreement no better than chance. Here, the agreement is moderate rather than perfect. That means the broad segment structure is present, but customers near the boundaries can move across methods.
+
+We carry the k-means labels forward because k-means is the method used for the formal k-selection diagnostics, its centroids are directly interpretable in PC space, and the bootstrap stability check in §6 is defined for the k-means solution.
+
+```{r hc-vs-km-overlap-table}
+prop.table(cross_tab, margin = 1) |>
+  round(3) |>
+  knitr::kable(caption = paste("Row-normalised overlap: each row is a",
+                               "k-means cluster, columns are Ward clusters"))
+```
+
+Because cluster labels are arbitrary, the diagonal should not be interpreted mechanically. Instead, each row should be read by its largest entry: this shows which Ward cluster contains most of the customers from a given k-means cluster. If each k-means cluster has one dominant Ward match, the two methods are recovering a similar segmentation; if a row is split across multiple Ward clusters, that k-means segment has a fuzzier boundary.
+
+
+# 6. Stability   bootstrap Jaccard via `clusterboot`
+
+We use Hennig's `fpc::clusterboot` with
+non-parametric bootstrap resampling. For each cluster, the **mean
+Jaccard similarity** across bootstrap replicates measures how often the
+"same" customers re-cluster together when the input is perturbed.
+Conventional reading (Hennig 2007):
+
+* mean Jaccard $\geq 0.85$   highly stable
+* $0.75$–$0.85$   stable, the cluster is a real pattern
+* $0.60$–$0.75$   measures a pattern, but the boundary is fuzzy
+* $< 0.60$   should not be interpreted as a real cluster
+
+```{r clusterboot, cache=TRUE}
+set.seed(1)
+boot <- fpc::clusterboot(
+  data       = Xpc,
+  B          = 100,
+  bootmethod = "boot",
+  clustermethod = kmeansCBI,
+  krange     = k_star,
+  seed       = 1,
+  count      = FALSE
+)
+
+stability_df <- tibble(
+  cluster      = seq_len(k_star),
+  mean_jaccard = round(boot$bootmean, 3),
+  dissolved    = boot$bootbrd,        # times Jaccard < 0.5
+  recovered    = boot$bootrecover     # times Jaccard >= 0.75
+)
+stability_df
+```
+
+```{r clusterboot-plot, fig.height=3.2}
+ggplot(stability_df,
+       aes(factor(cluster), mean_jaccard, fill = factor(cluster))) +
+  geom_col() +
+  geom_hline(yintercept = c(0.6, 0.75, 0.85),
+             linetype = "dashed", colour = "grey50") +
+  geom_text(aes(label = sprintf("%.2f", mean_jaccard)),
+            vjust = -0.4, size = 3.5) +
+  scale_y_continuous(limits = c(0, 1), expand = expansion(mult = c(0, 0.1))) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = paste("Bootstrap Jaccard stability,", "B = 100"),
+       subtitle = "Dashed lines: 0.60 / 0.75 / 0.85 stability thresholds",
+       x = "Cluster", y = "Mean Jaccard") +
+  theme(legend.position = "none")
+```
+
+
+
+
+

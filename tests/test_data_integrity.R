@@ -4,8 +4,11 @@
 # Run with `make test` or `Rscript -e 'testthat::test_dir("tests")'`.
 
 library(testthat)
-source(file.path("src", "R", "00_setup.R"))
-source(file.path("src", "R", "02_features.R"))
+# Use here::here() so paths resolve to project root regardless of the
+# working directory testthat::test_dir() chooses. The .here marker at
+# the project root anchors this.
+source(here::here("src", "R", "00_setup.R"))
+source(here::here("src", "R", "02_features.R"))
 
 
 test_that("transactions table loads and validates", {

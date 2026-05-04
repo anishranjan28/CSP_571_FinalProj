@@ -21,7 +21,7 @@ suppressPackageStartupMessages({
   library(rpart.plot)
 })
 
-source(file.path("src", "R", "utils.R"))
+source(here::here("src", "R", "utils.R"))
 
 # Single source of truth for the seed used everywhere.
 CONFIG <- load_config()

@@ -5,8 +5,8 @@
 # check that the output shape and labels are consistent.
 
 library(testthat)
-source(file.path("src", "R", "00_setup.R"))
-source(file.path("src", "R", "06_score_new_customers.R"))
+source(here::here("src", "R", "00_setup.R"))
+source(here::here("src", "R", "06_score_new_customers.R"))
 
 
 test_that("segmentation_pipeline.rds loads and has required slots", {

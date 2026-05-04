@@ -1,5 +1,5 @@
 ---
-title: "02_PCA — Principal Component Analysis"
+title: "02_PCA   Principal Component Analysis"
 author: "Anish"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
@@ -27,11 +27,11 @@ theme_set(theme_minimal(base_size = 12))
 
 # 1. What this notebook does
 
-PCA serves two roles in this project (ISLR §12.2 / §12.4.3):
+PCA serves two roles in this project:
 
-1.  **Visualisation** — project customers onto PC1–PC2 to eyeball cluster
+1.  **Visualisation**   project customers onto PC1–PC2 to eyeball cluster
     structure later.
-2.  **Preprocessing** — replace ~7 correlated input features with 2–3
+2.  **Preprocessing**   replace ~7 correlated input features with 2–3
     orthogonal PC scores to feed into k-means / hclust in
     `03_clustering.Rmd`.
 
@@ -58,14 +58,11 @@ glimpse(customer)
 The seven-feature input drops everything that the EDA flagged as redundant
 or distortive:
 
-* `log_NetMonetary` instead of `log_GrossMonetary` — captures the
+* `log_NetMonetary` instead of `log_GrossMonetary`   captures the
   customer's actual contribution to revenue net of returns.
-* `AvgUnitPrice_winsor` instead of raw `AvgUnitPrice` — without
+* `AvgUnitPrice_winsor` instead of raw `AvgUnitPrice`   without
   winsorising, a few extreme items dominate PC2/PC3 loadings.
-* `AvgOrderValue` kept (drop `AvgBasketValue`, which was an inconsistent
-  line-level proxy in earlier iterations and is no longer produced by
-  `dataPreprocess.py`).
-* `Country` excluded — UK dominance would force a near-degenerate split.
+* `Country` excluded   UK dominance would force a near-degenerate split.
 * `ReturnRate` / `ReturnValueRate` held back as profiling variables
   (sparse, mostly zero).
 
@@ -81,7 +78,7 @@ X <- customer |>
 # Sanity-check: row count must equal customer count.
 stopifnot(nrow(X) == nrow(customer))
 
-# Confirm winsorisation worked — pre-winsor max can be hundreds of pounds.
+# Confirm winsorisation worked   pre-winsor max can be hundreds of pounds.
 summary(X$AvgUnitPrice_winsor)
 quantile(X$AvgUnitPrice_winsor, c(.5, .9, .99, 1))
 
@@ -92,7 +89,7 @@ summary(X[, feature_cols])
 # 4. Fit PCA
 
 `prcomp(center = TRUE, scale. = TRUE)` standardises every column to zero
-mean / unit variance — required because `AvgUnitPrice_winsor` and
+mean / unit variance   required because `AvgUnitPrice_winsor` and
 `TenureDays` are on totally different scales from the log features.
 
 ```{r pca-fit}
@@ -145,7 +142,7 @@ Kaiser's rule (eigenvalue > 1) gives a quick orthogonal check on the
 elbow / variance-threshold heuristic. We typically keep the first three
 PCs across all three rules.
 
-# 6. Loadings — what each PC actually means
+# 6. Loadings   what each PC actually means
 
 ```{r loadings}
 loadings <- as_tibble(pr.out$rotation, rownames = "feature")
@@ -166,30 +163,30 @@ loadings |>
   labs(title = "Loadings (PC1–PC4)", x = NULL, y = NULL)
 ```
 
-**Note on signs.** PCA component signs are arbitrary — `prcomp` could
+**Note on signs.** PCA component signs are arbitrary   `prcomp` could
 have flipped any column. What matters is the *contrast* across features,
 not the absolute sign. Read each PC as "high vs. low" along the loadings
 displayed below.
 
 Reading the loadings on the cleaned/winsorised features:
 
-* **PC1 — engagement / customer value.** Loads positively on
+* **PC1   engagement / customer value.** Loads positively on
   `log_Frequency`, `log_NetMonetary`, `log_UniqueProducts`, and
   `TenureDays`, and negatively on `log_Recency`. High PC1 = recent,
   frequent, broad-product, repeat-relationship customers. Low PC1 =
   lapsed one-time buyers.
-* **PC2 — order-size vs. tenure contrast.** Strong negative loading on
+* **PC2   order-size vs. tenure contrast.** Strong negative loading on
   `log_AvgOrderValue` and `AvgUnitPrice_winsor`, positive on `TenureDays`
   and `log_Frequency`. Low PC2 ~ wholesale-leaning behaviour (fewer,
   larger orders of higher-priced items). High PC2 ~ smaller, more frequent
   transactions over a longer relationship. **It is *not* purely a
-  "tenure / lifecycle" axis** — describing it that way ignores the
+  "tenure / lifecycle" axis**   describing it that way ignores the
   AvgOrderValue contrast, which is the more informative half.
-* **PC3 — residual price-point.** Once PC1 and PC2 absorb engagement and
-  order-size, PC3 picks up what's left of `AvgUnitPrice_winsor` —
+* **PC3   residual price-point.** Once PC1 and PC2 absorb engagement and
+  order-size, PC3 picks up what's left of `AvgUnitPrice_winsor`  
   essentially the price tier the customer typically buys at.
 
-# 7. PC scores — the new feature space
+# 7. PC scores   the new feature space
 
 ```{r scores}
 scores <- as_tibble(pr.out$x) |>
@@ -248,12 +245,12 @@ ggplot(scores, aes(PC1, PC2)) +
   geom_text(data = arrows_df,
             aes(x = PC1 * 1.08, y = PC2 * 1.08, label = feature),
             colour = "firebrick", size = 3.5) +
-  labs(title = "Biplot — customers + variable loadings on PC1–PC2",
+  labs(title = "Biplot   customers + variable loadings on PC1–PC2",
        x = sprintf("PC1 (%s)", percent(pve[1], accuracy = 0.1)),
        y = sprintf("PC2 (%s)", percent(pve[2], accuracy = 0.1)))
 ```
 
-# 9. PC1 sanity check — symmetric core, real upper tail
+# 9. PC1 sanity check   symmetric core, real upper tail
 
 ```{r pc1-hist, fig.height=3.5}
 ggplot(scores, aes(PC1)) +
@@ -266,4 +263,21 @@ ggplot(scores, aes(PC1)) +
 
 PC1 is approximately symmetric in the bulk but retains a right shoulder
 representing the wholesale-leaning tail. We do **not** claim the
-distribution is "well-behaved eno
+distribution is "well-behaved enough" for k-means to be unconditionally
+appropriate; we instead carry this through as a known sensitivity and
+report the segmentation on both raw and unit-variance-scaled PC scores
+in `03_clustering.Rmd`.
+
+```{r pc1-tail-quantiles}
+quantile(scores$PC1,
+         probs = c(0.5, 0.75, 0.9, 0.95, 0.99, 1.0)) |>
+  round(2)
+```
+
+The gap between the 95th and 99th percentile (and again 99th to max) is
+where the wholesale shoulder lives   those rows will end up in the
+high-value cluster in `03_clustering.Rmd` regardless of `k`, but they
+also pull the centroid of that cluster, which is why the `04_profiles.Rmd`
+table reports both the median and the mean.
+
+

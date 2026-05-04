@@ -1,5 +1,5 @@
 ---
-title: "01_EDA — Online Retail exploratory data analysis"
+title: "01_EDA  Online Retail exploratory data analysis"
 author: "Anish"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
@@ -26,25 +26,22 @@ theme_set(theme_minimal(base_size = 12))
 # Encoding-safe constants for plots: avoid literal £ on systems whose locale
 # is not UTF-8 (the source of the previous render error on the products plot).
 pound  <- "£"
-emdash <- "—"
+emdash <- ""
 ```
 
 # 1. Project outline
 
-UCI Online Retail (id 352) — one year (Dec 2010 – Dec 2011) of transactions
-from a UK-based online gift retailer. The project is unsupervised customer
-segmentation, scoped to ISLR Ch. 12 methods (PCA, k-means, hierarchical
-clustering).
+UCI Online Retail (id 352)  one year (Dec 2010 – Dec 2011) of transactions
+from a UK-based online gift retailer. 
 
 `dataPreprocess.py` writes four files into `../data/`:
 
-* `online_retail_clean.csv`     — positive-quantity, positive-price line items
-* `online_retail_cancelled.csv` — cancellation invoices kept SEPARATELY (so
+* `online_retail_clean.csv`      positive-quantity, positive-price line items
+* `online_retail_cancelled.csv`  cancellation invoices kept SEPARATELY (so
   net-of-returns features can be computed without throwing them away)
-* `customer_features.csv`       — customer-level RFM and behavioural features
-* `data_quality_summary.txt`    — sanity-check counts
+* `customer_features.csv`        customer-level RFM and behavioural features
+* `data_quality_summary.txt`     sanity-check counts
 
-This notebook does the EDA only; modelling lives in `02_PCA.Rmd` onwards.
 
 # 2. Load and validate
 
@@ -66,7 +63,7 @@ tx <- tx |>
   rename_with(\(n) ifelse(n == "CustomerId", "CustomerID", n)) |>
   mutate(Description = iconv(Description, from = "", to = "UTF-8", sub = ""))
 
-# Validation — fail fast if data shape isn't what later chunks assume.
+# Validation  fail fast if data shape isn't what later chunks assume.
 stopifnot(
   "CustomerID" %in% names(tx),
   "CustomerID" %in% names(customer),
@@ -88,7 +85,7 @@ list(
 glimpse(customer)
 ```
 
-# 3. Headline numbers — gross AND net
+# 3. Headline numbers  gross AND net
 
 The pipeline now reports both gross sales and net-of-cancellations revenue.
 The difference is the share of sales customers later cancelled.
@@ -140,17 +137,16 @@ customer |>
        x = NULL, y = "Customers")
 ```
 
-The log transform reduces — but does not eliminate — skew. `log_NetMonetary`
+The log transform reduces  but does not eliminate  skew. `log_NetMonetary`
 is approximately bell-shaped, but the upper shoulder represents real
 high-value (likely wholesale-leaning) customers and will continue to
-influence distance-based clustering. We address this with sensitivity
-analyses in `03_clustering.Rmd` rather than removing them.
+influence distance-based clustering.
 
-# 5. Correlation structure — Pearson and Spearman
+# 5. Correlation structure  Pearson and Spearman
 
 We report both because Pearson is sensitive to outliers; Spearman (rank-based)
 is robust to them. Pairs that look correlated under Pearson but not Spearman
-are correlated *because of* extreme values — useful to know when choosing
+are correlated because of extreme values useful to know when choosing
 which features to keep.
 
 ```{r corr-pearson, fig.height=6}
@@ -187,7 +183,7 @@ What this implies for clustering input selection:
 * `AvgOrderValue` and `AvgOrderItems` carry similar information; we keep
   `AvgOrderValue` (revenue-relevant) and drop `AvgOrderItems`.
 * `Recency` is largely independent of the spending features under both
-  correlation measures — it is its own axis of variation, justifying the
+  correlation measures  it is its own axis of variation, justifying the
   canonical R, F, M triple.
 * `ReturnRate` and `ReturnValueRate` are weakly correlated with everything
   else. They are best used as *profiling* variables, not clustering inputs.
@@ -223,10 +219,10 @@ ggplot(daily, aes(Date, revenue)) +
        x = NULL, y = "Revenue")
 ```
 
-The Q4 2011 ramp is the holiday gift season — a sanity check that the
+The Q4 2011 ramp is the holiday gift season  a sanity check that the
 timestamps and currency conversions are correct. The single-day spikes in
 late November / early December correspond to a small number of very large
-invoices (see §9 anomaly check).
+invoices.
 
 ```{r ts-dow-hour, fig.height=3.5}
 library(gridExtra)
@@ -279,3 +275,101 @@ tx |>
   ) +
   coord_cartesian(clip = "off")
 ```
+
+The UK dominates roughly four-fifths of net revenue, which is why
+`Country` is held out of the clustering input matrix in `02_PCA.Rmd`:
+including it would force a near-degenerate UK / non-UK split that adds
+no behavioural signal. 
+
+# 9. Anomaly check  single-day revenue spikes
+
+The smoothed loess in §7 shows real seasonality, but the residuals reveal
+a handful of days whose revenue is several standard deviations above the
+local trend. Distance-based clusterers are sensitive to a small number of
+extreme observations, so we have to know which invoices and which
+products drive these spikes before deciding what  if anything  to do
+with them.
+
+## 9a. Days with the largest residual revenue
+
+```{r anomaly-days, fig.height=3.5}
+daily_res <- daily |>
+  arrange(Date) |>
+  mutate(trend = predict(loess(revenue ~ as.numeric(Date),
+                               data = pick(everything()),
+                               span = 0.2)),
+         resid = revenue - trend) |>
+  arrange(desc(resid))
+
+top_days <- daily_res |> slice_head(n = 6)
+
+top_days |>
+  mutate(across(c(revenue, trend, resid),
+                \(x) comma(x, accuracy = 1, prefix = pound))) |>
+  knitr::kable(caption = "Six days with the largest positive residual revenue")
+```
+
+```{r anomaly-day-plot, fig.height=3.2}
+ggplot(daily_res, aes(Date, resid)) +
+  geom_col(fill = "steelblue") +
+  geom_point(data = top_days, aes(Date, resid),
+             colour = "firebrick", size = 2) +
+  scale_y_continuous(labels = label_comma(prefix = pound)) +
+  labs(title = "Daily revenue residual from loess trend",
+       subtitle = "Red = days flagged as positive anomalies",
+       x = NULL, y = "Residual revenue")
+```
+
+## 9b. Top contributing invoices on those days
+
+```{r anomaly-invoices}
+top_invoices <- tx |>
+  filter(Date %in% top_days$Date) |>
+  group_by(Date, InvoiceNo, CustomerID, Country) |>
+  summarise(invoice_revenue = sum(Amount),
+            line_items      = n(),
+            .groups = "drop") |>
+  arrange(desc(invoice_revenue)) |>
+  slice_head(n = 10)
+
+top_invoices |>
+  mutate(invoice_revenue = comma(invoice_revenue, accuracy = 1,
+                                 prefix = pound)) |>
+  knitr::kable(caption = "Top 10 invoices on flagged days")
+```
+
+## 9c. Top contributing products
+
+```{r anomaly-products}
+top_products <- tx |>
+  filter(Date %in% top_days$Date) |>
+  group_by(StockCode, Description) |>
+  summarise(revenue   = sum(Amount),
+            quantity  = sum(Quantity),
+            invoices  = n_distinct(InvoiceNo),
+            .groups   = "drop") |>
+  arrange(desc(revenue)) |>
+  slice_head(n = 8)
+
+top_products |>
+  mutate(Description = str_trunc(Description, 35),
+         revenue     = comma(revenue, accuracy = 1, prefix = pound),
+         quantity    = comma(quantity, accuracy = 1)) |>
+  knitr::kable(caption = "Top 8 products on flagged days")
+```
+
+The most consistent contributor across the flagged days is `StockCode 23843`
+("PAPER CRAFT, LITTLE BIRDIE"), bought on a single very large wholesale
+invoice. Two implications:
+
+1. **No removal.** The line is a legitimate transaction by a real customer.
+   Dropping it would silently bias the segment definitions and break
+   reproducibility against the published UCI table.
+2. **Profile with and without.** `04_profiles.Rmd` reports the top products
+   per cluster *both* including and excluding `23843` so that one customer's
+   single bulk order does not overstate the assortment of the segment they
+   sit in.
+
+
+
+

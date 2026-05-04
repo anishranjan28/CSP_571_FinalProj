@@ -1,7 +1,7 @@
 # tests/test_cluster_outputs.R
 
 library(testthat)
-source(file.path("src", "R", "00_setup.R"))
+source(here::here("src", "R", "00_setup.R"))
 
 
 test_that("customer_clusters.csv exists and has expected structure", {

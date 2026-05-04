@@ -1,5 +1,5 @@
 ---
-title: "04_profiles — naming the segments"
+title: "04_profiles   naming the segments"
 author: "Anish"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
@@ -25,12 +25,12 @@ set.seed(1)
 theme_set(theme_minimal(base_size = 12))
 
 pound  <- "£"
-emdash <- "—"
+emdash <- " "
 ```
 
 # 1. Goal
 
-Take the k = 3 cluster labels from `03_clustering.Rmd` and turn them into
+Take the k = 3 cluster labels from and turn them into
 named, interpretable customer personas. Output:
 `../data/customer_features_labeled.csv`.
 
@@ -94,7 +94,7 @@ tx <- tx |>
 table(cust$cluster)
 ```
 
-# 3. Headline summary — share of customers vs share of revenue
+# 3. Headline summary   share of customers vs share of revenue
 
 ```{r headline}
 total_rev_net <- sum(cust$NetMonetary)
@@ -119,7 +119,7 @@ headline |>
                 \(x) dollar(x, prefix = pound)),
          across(c(pct_customers, pct_revenue),
                 \(x) percent(x, accuracy = 0.1))) |>
-  kable(caption = "Cluster headlines — share of customers vs revenue (net)")
+  kable(caption = "Cluster headlines   share of customers vs revenue (net)")
 ```
 
 The most important number above is **share of revenue vs share of
@@ -138,7 +138,7 @@ ggplot(headline, aes(cluster, fill = cluster)) +
   theme(legend.position = "none")
 ```
 
-# 4. Feature profile — median AND mean
+# 4. Feature profile   median AND mean
 
 Median is robust to outliers; mean is what aggregates revenue forecasts.
 We report both because the distributions are heavy-tailed.
@@ -203,7 +203,7 @@ cust |>
 
 A single picture summarising "what makes each cluster different from the
 average customer." Each line is a cluster centroid in z-scored feature
-space — positive = above population mean, negative = below.
+space   positive = above population mean, negative = below.
 
 ```{r signature, fig.height=4}
 z_profile <- cust |>
@@ -220,7 +220,7 @@ ggplot(z_profile, aes(feature, z, group = cluster, colour = cluster)) +
   geom_line(linewidth = 1) +
   geom_point(size = 2.5) +
   scale_colour_brewer(palette = "Set1") +
-  labs(title = "Cluster signature — feature means in standard deviations",
+  labs(title = "Cluster signature   feature means in standard deviations",
        x = NULL, y = "z-score") +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
@@ -228,7 +228,7 @@ ggplot(z_profile, aes(feature, z, group = cluster, colour = cluster)) +
 # 7. Geographic composition
 
 `Country` was held out of clustering on purpose (UK ~ 83%). Using it now
-is descriptive only — it tells us whether segments correlate with
+is descriptive only   it tells us whether segments correlate with
 geography after the fact.
 
 ```{r country, fig.height=4}
@@ -248,7 +248,7 @@ cust |>
        y = "Share of cluster", x = NULL)
 ```
 
-# 8. Top products per cluster — with AND without anomaly
+# 8. Top products per cluster   with AND without anomaly
 
 ```{r top-products}
 anomaly_code <- "23843"
@@ -279,3 +279,135 @@ top_without |>
   mutate(Description = str_trunc(Description, 35),
          revenue     = dollar(revenue, prefix = pound)) |>
   kable(caption = "Top 5 products by revenue, per cluster (EXCLUDING 23843)")
+```
+
+The two tables together tell the anomaly story directly: if `23843`
+appears as a single cluster's top product in the first table but
+disappears entirely from the second, that cluster's "top product" was
+really a single bulk wholesale invoice (see §9 of `01_EDA.Rmd`). The
+second table is the more honest description of the segment's habitual
+product mix.
+
+# 9. What separates the clusters?   a 1-page decision tree
+
+Centroids and parallel coordinates show *where* clusters sit. A small
+classification tree shows *which features and which thresholds* you
+would actually use to assign a new customer to a cluster. We fit
+`rpart` on the original (un-PCA'd) features so the splits are
+interpretable in business units (£, days, counts) rather than PC
+scores.
+
+```{r rpart-tree, fig.height=5}
+tree_data <- cust |>
+  select(cluster,
+         Recency, Frequency, NetMonetary,
+         AvgOrderValue, UniqueProducts,
+         AvgUnitPrice_winsor, TenureDays)
+
+tree <- rpart(cluster ~ ., data = tree_data,
+              method = "class",
+              control = rpart.control(cp = 0.01, maxdepth = 4,
+                                      minbucket = 50))
+
+rpart.plot(tree,
+           type = 2, extra = 104, fallen.leaves = TRUE,
+           box.palette = "RdYlGn", branch.lty = 3,
+           main = "What separates the clusters? (rpart, depth ≤ 4)")
+```
+
+```{r rpart-accuracy}
+pred <- predict(tree, tree_data, type = "class")
+acc  <- mean(pred == tree_data$cluster)
+
+list(
+  in_sample_accuracy = round(acc, 3),
+  confusion          = table(predicted = pred, actual = tree_data$cluster)
+)
+```
+
+The tree is descriptive, not predictive: the labels themselves came
+from k-means, so the in-sample accuracy is an upper bound on how
+recoverable the clustering is from the original features. A tree
+accuracy above ~0.85 means the clusters can be substantially explained
+by 3–4 simple rules on the raw features, which is the precondition for
+naming them in §10.
+
+# 10. Persona names
+
+The persona names below are the human-readable labels that go on
+dashboards, briefs, and CRM segments. They are derived directly from
+the §4 profile table and the §9 tree splits   no inputs that aren't
+already in this notebook.
+
+| Cluster | Persona | One-line description |
+|---|---|---|
+| **A** | **Wholesale-leaning regulars** | High net spend, frequent orders, broadest product range, often higher AvgOrderValue. Small share of customers, large share of revenue. |
+| **B** | **Engaged retail** | Recent and reasonably frequent buyers at typical retail order sizes. Largest share of customers, moderate share of revenue. |
+| **C** | **Lapsed / one-time** | High recency (haven't bought in a long time), low frequency, often `SinglePurchase = TRUE`. Large share of customers, small share of revenue. |
+
+These names are consistent across the assignment-stable sense of §6 of
+`03_clustering.Rmd`: persona **A** corresponds to the high-Jaccard
+high-value cluster and is safe to act on; persona **B** sits in the
+fuzzier middle band and should be targeted with broader campaigns;
+persona **C** is presented as "directional only" wherever the bootstrap
+Jaccard came in below 0.75, because the boundary between **B** and **C**
+is the part of the partition that moves most under resampling.
+
+```{r attach-persona}
+persona_lookup <- tibble(
+  cluster = factor(c("A", "B", "C"),
+                   levels = LETTERS[seq_along(levels(cust$cluster))]),
+  persona = c("Wholesale-leaning regulars",
+              "Engaged retail",
+              "Lapsed / one-time")
+) |>
+  filter(cluster %in% levels(cust$cluster))
+
+cust <- cust |>
+  left_join(persona_lookup, by = "cluster")
+
+table(cust$cluster, cust$persona)
+```
+
+# 11. Executive summary
+
+Three numbers the executive summary should lead with:
+
+```{r exec-summary}
+exec <- cust |>
+  group_by(cluster, persona) |>
+  summarise(
+    customers     = n(),
+    pct_customers = n() / nrow(cust),
+    revenue_net   = sum(NetMonetary),
+    pct_revenue   = sum(NetMonetary) / sum(cust$NetMonetary),
+    median_recency_d = median(Recency),
+    .groups = "drop"
+  ) |>
+  arrange(cluster)
+
+exec |>
+  mutate(revenue_net   = dollar(revenue_net,  prefix = pound, accuracy = 1),
+         pct_customers = percent(pct_customers, accuracy = 0.1),
+         pct_revenue   = percent(pct_revenue,   accuracy = 0.1)) |>
+  kable(caption = "Executive summary   customers, revenue, recency by persona")
+```
+
+The recommended actions follow directly from the customer-share /
+revenue-share asymmetry:
+
+* **Persona A   protect.** Disproportionate revenue from a small
+  customer base. Lifecycle programmes, account-management touchpoints,
+  early access to new SKUs. Loss aversion: the cost of churning one A
+  is the cost of acquiring many Bs.
+* **Persona B   convert.** Largest customer base, moderate revenue
+  per head. Treatment effect leverage is highest here   an offer that
+  shifts a B toward A behaviour is worth more in expectation than the
+  same offer to an A. Test promotions, cross-sell adjacencies, and
+  basket-size nudges.
+* **Persona C   selective re-engagement.** Don't blanket-target a
+  segment with low Jaccard stability. Run a controlled win-back to the
+  most recently lapsed slice of C and measure incrementality before
+  scaling.
+
+
