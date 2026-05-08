@@ -4,7 +4,7 @@
 # clear error on failure. Used by both the pipeline orchestration and the
 # testthat tests.
 
-source(file.path("src", "R", "00_setup.R"))
+source(here::here("src", "R", "00_setup.R"))
 
 
 #' Validate the customer feature table produced by Python.

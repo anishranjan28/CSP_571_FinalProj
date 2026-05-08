@@ -3,21 +3,43 @@
 End-to-end unsupervised customer segmentation on the UCI Online Retail
 dataset (id 352): UK gift retailer, Dec 2010 – Dec 2011, ~4,300 customers.
 
-The repository is structured as a small reproducible pipeline rather than
-a collection of notebooks. Run `make all` from a clean checkout to fetch
-the data, build features, fit PCA + k-means, validate, profile, and knit
-every report.
+The repository is structured as a small reproducible pipeline rather than a
+collection of notebooks. **One command (`./setup.sh`) takes a clean checkout
+to fully reproduced data, fitted models, knitted reports, and passing
+tests.**
 
 ## Quick start
 
 ```bash
-# 1. Install dependencies
+./setup.sh
+```
+
+That's it. The script is idempotent — re-running after a code change is
+safe and fast. It will:
+
+1. Detect your OS (Linux / macOS / Git Bash on Windows).
+2. Create a Python venv at `./.venv` (skipped if it already exists).
+3. Install Python dependencies from `requirements.txt`.
+4. Install only the R packages that aren't already present.
+5. Sanity-check `make`, `pandoc`, and a LaTeX engine.
+6. Run `make all`.
+
+Useful flags:
+
+```bash
+./setup.sh --no-build   # env setup only, skip the build
+./setup.sh --no-r       # skip R package install (Python-only setups)
+./setup.sh --help
+```
+
+If you'd rather drive the build yourself, install the deps once and use the
+Makefile directly:
+
+```bash
 pip install -r requirements.txt
 R -e 'install.packages(c("tidyverse","scales","yaml","here","cluster",
   "factoextra","fpc","mclust","dendextend","rpart","rpart.plot",
   "corrplot","GGally","gridExtra","testthat","knitr","rmarkdown"))'
-
-# 2. Run the entire project
 make all
 ```
 
@@ -35,6 +57,7 @@ make all
 ```
 uci-retail-segmentation/
 ├── README.md
+├── setup.sh                   # one-command bootstrap (idempotent)
 ├── Makefile
 ├── config.yml                 # single source of truth for all paths / params
 ├── requirements.txt
@@ -102,10 +125,10 @@ uci-retail-segmentation/
    raw and scaled PC scores.
 6. **Profiles.** Headline revenue/customer share, median + mean feature
    profiles, top products with and without StockCode 23843 anomaly.
-7. **Persisted pipeline.** `segmentation_pipeline.rds` carries the prcomp
-   object, k-means centroids, label map, personas, version, timestamp,
-   and full diagnostics — so new customers can be scored without rerunning
-   anything.
+7. **Persisted pipeline.** `segmentation_pipeline.rds` carries the
+   prcomp object, k-means centroids, label map, personas, version,
+   timestamp, and full diagnostics — so new customers can be scored
+   without rerunning anything.
 
 ## Mathematical specification (short form)
 
@@ -128,6 +151,7 @@ Scoring a new customer with feature vector `x_new`:
 
 ## Reproducibility
 
+* `./setup.sh` is the canonical entry point. Idempotent.
 * Fixed seed (`config.yml: seed: 1`) is applied before every random step.
 * Each module asserts data-shape invariants on entry; tests in `tests/`
   re-check them after the pipeline writes outputs.

@@ -9,8 +9,8 @@
 #
 # We retain the first n_components PCs (default 3, configured in config.yml).
 
-source(file.path("src", "R", "00_setup.R"))
-source(file.path("src", "R", "02_features.R"))
+source(here::here("src", "R", "00_setup.R"))
+source(here::here("src", "R", "02_features.R"))
 
 
 #' Fit PCA, save the model + score CSV, return summary metadata.

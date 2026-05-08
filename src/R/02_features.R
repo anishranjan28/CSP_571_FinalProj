@@ -4,8 +4,8 @@
 # module is a thin loader + validator + helpers that downstream R steps
 # can import without re-implementing schema knowledge.
 
-source(file.path("src", "R", "00_setup.R"))
-source(file.path("src", "R", "01_validate_data.R"))
+source(here::here("src", "R", "00_setup.R"))
+source(here::here("src", "R", "01_validate_data.R"))
 
 
 #' Load and validate the customer-level feature table.

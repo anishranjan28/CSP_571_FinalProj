@@ -15,8 +15,8 @@
 #
 # K_star is configured in config.yml; default 3.
 
-source(file.path("src", "R", "00_setup.R"))
-source(file.path("src", "R", "02_features.R"))
+source(here::here("src", "R", "00_setup.R"))
+source(here::here("src", "R", "02_features.R"))
 
 
 #' Load PC scores produced by fit_pca().

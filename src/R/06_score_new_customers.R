@@ -11,7 +11,7 @@
 # this — feature columns, prcomp object (with center/scale vectors and
 # rotation matrix), kmeans centroids, and the raw->letter label map.
 
-source(file.path("src", "R", "00_setup.R"))
+source(here::here("src", "R", "00_setup.R"))
 
 
 #' Load the persisted segmentation pipeline.

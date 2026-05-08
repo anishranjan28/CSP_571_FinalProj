@@ -6,8 +6,8 @@
 #   * top products per cluster (with and without anomaly StockCode 23843)
 #   * the labelled customer table for downstream scoring / SVM extension
 
-source(file.path("src", "R", "00_setup.R"))
-source(file.path("src", "R", "02_features.R"))
+source(here::here("src", "R", "00_setup.R"))
+source(here::here("src", "R", "02_features.R"))
 
 
 #' Headline summary: customers, revenue, share per cluster.
