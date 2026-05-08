@@ -14,8 +14,7 @@ tests.**
 ./setup.sh
 ```
 
-That's it. The script is idempotent — re-running after a code change is
-safe and fast. It will:
+functions:
 
 1. Detect your OS (Linux / macOS / Git Bash on Windows).
 2. Create a Python venv at `./.venv` (skipped if it already exists).
